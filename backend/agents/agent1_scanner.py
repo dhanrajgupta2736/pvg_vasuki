@@ -215,18 +215,22 @@ async def calculate_blast_radius(repo_path: str, findings: list[dict], scan_id: 
     await emit(scan_id, "💥 Calculating blast radius...")
     
     affected_files = set()
+    root = Path(repo_path)
     for f in findings:
-        if f.get("file"):
-            affected_files.add(f["file"])
-            # Find files that import the vulnerable file
-            vuln_module = Path(f["file"]).stem
+        file_path = f.get("file")
+        if file_path:
+            affected_files.add(file_path)
+            vuln_module = Path(file_path).stem
             try:
-                result = subprocess.run(
-                    ["grep", "-rl", vuln_module, repo_path],
-                    capture_output=True, text=True, timeout=10
-                )
-                for line in result.stdout.splitlines():
-                    affected_files.add(line.strip())
+                for p in root.rglob("*"):
+                    if p.is_file() and p.suffix in (".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".go", ".html"):
+                        try:
+                            content = p.read_text(encoding="utf-8", errors="ignore")
+                            if vuln_module in content:
+                                rel = str(p.relative_to(root)).replace("\\", "/")
+                                affected_files.add(rel)
+                        except Exception:
+                            pass
             except Exception:
                 pass
     

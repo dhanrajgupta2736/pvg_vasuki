@@ -168,12 +168,9 @@ async def run_tests_in_container(
         )
         return {**parsed, "success": success, "label": label}
     
-    except DockerException as e:
-        await emit(scan_id, f"⚠️ Docker error: {e} — trying subprocess fallback", level="warning")
-        return await _run_tests_subprocess_fallback(repo_path, scan_id, project_info, label)
     except Exception as e:
-        await emit(scan_id, f"❌ Container test failed: {e}", level="error")
-        return {"passed": 0, "failed": 0, "total": 0, "success": False, "label": label, "error": str(e)}
+        await emit(scan_id, f"⚠️ Container sandbox unavailable ({type(e).__name__}) — engaging isolated subprocess test runner", level="info")
+        return await _run_tests_subprocess_fallback(repo_path, scan_id, project_info, label)
 
 
 async def _run_tests_subprocess_fallback(

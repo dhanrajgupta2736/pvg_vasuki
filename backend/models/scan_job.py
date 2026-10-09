@@ -6,7 +6,6 @@ from datetime import datetime
 from enum import Enum as PyEnum
 
 from sqlalchemy import Column, String, DateTime, JSON, Float, Integer, Text, Enum
-from sqlalchemy.dialects.postgresql import UUID
 
 from core.database import Base
 
@@ -31,7 +30,7 @@ class AgentStatus(str, PyEnum):
 class ScanJob(Base):
     __tablename__ = "scan_jobs"
 
-    id            = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id            = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     repo_url      = Column(String(512), nullable=False)
     branch        = Column(String(128), default="main")
     status        = Column(Enum(ScanStatus), default=ScanStatus.PENDING)

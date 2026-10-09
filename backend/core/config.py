@@ -23,8 +23,11 @@ class Settings(BaseSettings):
     AWS_REGION: str = "us-east-1"
     AWS_BEDROCK_MODEL_ID: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
 
-    # Database
-    DATABASE_URL: str = "postgresql+asyncpg://vasuki:vasuki_pass@localhost:5432/vasuki_db"
+    # Groq
+    GROQ_API_KEY: str = ""
+
+    # Database (defaults to local async SQLite for zero-config run)
+    DATABASE_URL: str = "sqlite+aiosqlite:///./vasuki.db"
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -39,6 +42,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 settings = Settings()

@@ -4,6 +4,8 @@ Run this after uploading the API key to Oracle Cloud:
   python scripts/test_oci_connection.py
 """
 import sys
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 print("🔍 Testing OCI connection...\n")
 
