@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   ExternalLink, Zap, Pause, RotateCcw, Sparkles, Check, Play, Copy
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
 const API_BASE = '';
@@ -1083,6 +1083,30 @@ function AgentMiniMotion({ agentIdx, isWorking }) {
   );
 }
 
+/* ── FRAMER-MOTION NEO-BRUTALIST SPRING PRESETS ── */
+const BRUTALIST_SPRING = {
+  type: 'spring',
+  stiffness: 420,
+  damping: 24,
+  mass: 0.8
+};
+
+const BRUTALIST_CARD_VARIANTS = {
+  hidden: { opacity: 0, y: 22, scale: 0.96 },
+  visible: (i = 0) => ({
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: 'spring',
+      stiffness: 380,
+      damping: 25,
+      mass: 0.8,
+      delay: i * 0.06
+    }
+  })
+};
+
 export default function App() {
   const [presetIndex, setPresetIndex] = useState(0);
   const [repoUrl, setRepoUrl] = useState(DEMO_PRESETS[0].url);
@@ -1782,8 +1806,28 @@ export default function App() {
             return (
               <motion.div
                 key={ag.key}
-                whileHover={{ x: -2, y: -2 }}
-                whileTap={{ scale: 0.98 }}
+                custom={ag.idx}
+                initial={{ opacity: 0, x: -18 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{
+                  type: 'spring',
+                  stiffness: 380,
+                  damping: 24,
+                  mass: 0.8,
+                  delay: ag.idx * 0.05
+                }}
+                whileHover={{
+                  x: -3,
+                  y: -2,
+                  boxShadow: isSelected ? '6px 6px 0px #111111' : '5px 5px 0px #111111',
+                  transition: BRUTALIST_SPRING
+                }}
+                whileTap={{
+                  x: 1,
+                  y: 1,
+                  boxShadow: '1px 1px 0px #111111',
+                  transition: { duration: 0.08 }
+                }}
                 onClick={() => {
                   setSelectedAgentIdx(ag.idx);
                   setActiveChamber(ag.chamber);
@@ -2212,7 +2256,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ── 5 BRUTALIST KPI CARDS ROW WITH NUMERIC COUNTER MOTIONS ── */}
+              {/* ── 5 BRUTALIST KPI CARDS ROW WITH FRAMER-MOTION SPRINGS ── */}
               <div className="bauhaus-kpi-grid" style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(5, 1fr)',
@@ -2220,13 +2264,18 @@ export default function App() {
               }}>
                 {/* KPI 1 */}
                 <motion.div
-                  whileHover={{ y: -5, x: -2, boxShadow: '6px 6px 0px #111111' }}
-                  transition={{ type: 'spring', stiffness: 350, damping: 20 }}
+                  custom={0}
+                  variants={BRUTALIST_CARD_VARIANTS}
+                  initial="hidden"
+                  animate="visible"
+                  whileHover={{ y: -6, x: -3, boxShadow: '8px 8px 0px #111111', transition: BRUTALIST_SPRING }}
+                  whileTap={{ y: 2, x: 1, boxShadow: '2px 2px 0px #111111', transition: { duration: 0.08 } }}
                   style={{
                     background: '#f0ece1',
                     border: '2px solid #111111',
                     boxShadow: '4px 4px 0px #111111',
-                    padding: '14px'
+                    padding: '14px',
+                    cursor: 'default'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -2245,13 +2294,18 @@ export default function App() {
 
                 {/* KPI 2 (Bauhaus Yellow) */}
                 <motion.div
-                  whileHover={{ y: -5, x: -2, boxShadow: '6px 6px 0px #111111' }}
-                  transition={{ type: 'spring', stiffness: 350, damping: 20 }}
+                  custom={1}
+                  variants={BRUTALIST_CARD_VARIANTS}
+                  initial="hidden"
+                  animate="visible"
+                  whileHover={{ y: -6, x: -3, boxShadow: '8px 8px 0px #111111', transition: BRUTALIST_SPRING }}
+                  whileTap={{ y: 2, x: 1, boxShadow: '2px 2px 0px #111111', transition: { duration: 0.08 } }}
                   style={{
                     background: '#ffcc00',
                     border: '2px solid #111111',
                     boxShadow: '4px 4px 0px #111111',
-                    padding: '14px'
+                    padding: '14px',
+                    cursor: 'default'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -2270,14 +2324,19 @@ export default function App() {
 
                 {/* KPI 3 (Constructivist Red) */}
                 <motion.div
-                  whileHover={{ y: -5, x: -2, boxShadow: '6px 6px 0px #111111' }}
-                  transition={{ type: 'spring', stiffness: 350, damping: 20 }}
+                  custom={2}
+                  variants={BRUTALIST_CARD_VARIANTS}
+                  initial="hidden"
+                  animate="visible"
+                  whileHover={{ y: -6, x: -3, boxShadow: '8px 8px 0px #111111', transition: BRUTALIST_SPRING }}
+                  whileTap={{ y: 2, x: 1, boxShadow: '2px 2px 0px #111111', transition: { duration: 0.08 } }}
                   style={{
                     background: '#e02424',
                     border: '2px solid #111111',
                     boxShadow: '4px 4px 0px #111111',
                     padding: '14px',
-                    color: '#ffffff'
+                    color: '#ffffff',
+                    cursor: 'default'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -2296,13 +2355,18 @@ export default function App() {
 
                 {/* KPI 4 */}
                 <motion.div
-                  whileHover={{ y: -5, x: -2, boxShadow: '6px 6px 0px #111111' }}
-                  transition={{ type: 'spring', stiffness: 350, damping: 20 }}
+                  custom={3}
+                  variants={BRUTALIST_CARD_VARIANTS}
+                  initial="hidden"
+                  animate="visible"
+                  whileHover={{ y: -6, x: -3, boxShadow: '8px 8px 0px #111111', transition: BRUTALIST_SPRING }}
+                  whileTap={{ y: 2, x: 1, boxShadow: '2px 2px 0px #111111', transition: { duration: 0.08 } }}
                   style={{
                     background: '#f0ece1',
                     border: '2px solid #111111',
                     boxShadow: '4px 4px 0px #111111',
-                    padding: '14px'
+                    padding: '14px',
+                    cursor: 'default'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -2321,13 +2385,18 @@ export default function App() {
 
                 {/* KPI 5 */}
                 <motion.div
-                  whileHover={{ y: -5, x: -2, boxShadow: '6px 6px 0px #111111' }}
-                  transition={{ type: 'spring', stiffness: 350, damping: 20 }}
+                  custom={4}
+                  variants={BRUTALIST_CARD_VARIANTS}
+                  initial="hidden"
+                  animate="visible"
+                  whileHover={{ y: -6, x: -3, boxShadow: '8px 8px 0px #111111', transition: BRUTALIST_SPRING }}
+                  whileTap={{ y: 2, x: 1, boxShadow: '2px 2px 0px #111111', transition: { duration: 0.08 } }}
                   style={{
                     background: '#f0ece1',
                     border: '2px solid #111111',
                     boxShadow: '4px 4px 0px #111111',
-                    padding: '14px'
+                    padding: '14px',
+                    cursor: 'default'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -2352,17 +2421,23 @@ export default function App() {
                 gap: '16px'
               }}>
                 {/* Left Chart: AST Vulnerability & Spell Defect Velocity */}
-                <div style={{
-                  background: '#ffffff',
-                  border: '2px solid #111111',
-                  boxShadow: '4px 4px 0px #111111',
-                  padding: '16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  position: 'relative',
-                  overflow: 'hidden'
-                }}>
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: 'spring', stiffness: 350, damping: 25, delay: 0.18 }}
+                  whileHover={{ y: -4, x: -2, boxShadow: '6px 6px 0px #111111', transition: BRUTALIST_SPRING }}
+                  style={{
+                    background: '#ffffff',
+                    border: '2px solid #111111',
+                    boxShadow: '4px 4px 0px #111111',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                >
                   {status === 'running' && <div className="radar-scan-line" />}
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
@@ -2525,18 +2600,24 @@ export default function App() {
                       Trend: Converging post-Forge patch
                     </span>
                   </div>
-                </div>
+                </motion.div>
 
                 {/* Right Chart: Multi-Agent Workload Distribution */}
-                <div style={{
-                  background: '#ffffff',
-                  border: '2px solid #111111',
-                  boxShadow: '4px 4px 0px #111111',
-                  padding: '16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between'
-                }}>
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: 'spring', stiffness: 350, damping: 25, delay: 0.25 }}
+                  whileHover={{ y: -4, x: -2, boxShadow: '6px 6px 0px #111111', transition: BRUTALIST_SPRING }}
+                  style={{
+                    background: '#ffffff',
+                    border: '2px solid #111111',
+                    boxShadow: '4px 4px 0px #111111',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between'
+                  }}
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ width: '9px', height: '9px', background: '#ffcc00', border: '1.5px solid #111' }} />
@@ -2672,7 +2753,7 @@ export default function App() {
                       Parallel LangChain LCEL affinity: 98.4% balanced
                     </div>
                   </div>
-                </div>
+                </motion.div>
               </div>
 
               {/* ── ACTIVE ANOMALY MATRIX & HEX QUARANTINE STATUS ── */}
@@ -2755,8 +2836,12 @@ export default function App() {
                     return (
                       <motion.div
                         key={vuln.id || idx}
-                        whileHover={{ y: -4, x: -2, boxShadow: '4px 4px 0px #111111' }}
-                        whileTap={{ scale: 0.98 }}
+                        custom={idx}
+                        variants={BRUTALIST_CARD_VARIANTS}
+                        initial="hidden"
+                        animate="visible"
+                        whileHover={{ y: -6, x: -3, boxShadow: '7px 7px 0px #111111', transition: BRUTALIST_SPRING }}
+                        whileTap={{ y: 2, x: 1, boxShadow: '1px 1px 0px #111111', transition: { duration: 0.08 } }}
                         onClick={() => {
                           setActiveVulnIndex(idx);
                           if (chamberSectionRef.current) {
@@ -3053,15 +3138,21 @@ export default function App() {
                 >
                   {/* Left Column: Surgical AST Code Diff & Vulnerable Context */}
                   {(activeChamber === 'all' || activeChamber === 'recon' || activeChamber === 'forge') && (
-                    <div style={{
-                      background: '#ffffff',
-                      border: '2px solid #111111',
-                      boxShadow: '4px 4px 0px #111111',
-                      padding: '16px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '12px'
-                    }}>
+                    <motion.div
+                      initial={{ opacity: 0, x: -14 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+                      whileHover={{ y: -4, x: -2, boxShadow: '6px 6px 0px #111111', transition: BRUTALIST_SPRING }}
+                      style={{
+                        background: '#ffffff',
+                        border: '2px solid #111111',
+                        boxShadow: '4px 4px 0px #111111',
+                        padding: '16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}
+                    >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                         <div className="font-display" style={{ fontSize: '0.8rem', fontWeight: 900 }}>
                           SURGICAL AST PATCH DIFF INSPECTOR ({patches[activeVulnIndex]?.file || 'backend/api/users.py'})
@@ -3156,20 +3247,26 @@ export default function App() {
                           ))}
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   )}
 
                   {/* Right Column: LangChain LCEL Trace & Container Pytest Proof */}
                   {(activeChamber === 'all' || activeChamber === 'shield' || activeChamber === 'proof') && (
-                    <div style={{
-                      background: '#ffffff',
-                      border: '2px solid #111111',
-                      boxShadow: '4px 4px 0px #111111',
-                      padding: '16px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '12px'
-                    }}>
+                    <motion.div
+                      initial={{ opacity: 0, x: 14 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+                      whileHover={{ y: -4, x: -2, boxShadow: '6px 6px 0px #111111', transition: BRUTALIST_SPRING }}
+                      style={{
+                        background: '#ffffff',
+                        border: '2px solid #111111',
+                        boxShadow: '4px 4px 0px #111111',
+                        padding: '16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}
+                    >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div className="font-display" style={{ fontSize: '0.8rem', fontWeight: 900 }}>
                           LANGCHAIN RUNNABLESEQUENCE TRACE &amp; PYTEST PROOF
@@ -3216,18 +3313,24 @@ export default function App() {
                           {testResults?.output}
                         </pre>
                       </div>
-                    </div>
+                    </motion.div>
                   )}
                 </motion.div>
               </AnimatePresence>
 
               {/* Live Sentinel Event Stream Terminal */}
-              <div style={{
-                background: '#ffffff',
-                border: '2px solid #111111',
-                boxShadow: '4px 4px 0px #111111',
-                padding: '16px'
-              }}>
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 25, delay: 0.2 }}
+                whileHover={{ y: -3, x: -2, boxShadow: '6px 6px 0px #111111', transition: BRUTALIST_SPRING }}
+                style={{
+                  background: '#ffffff',
+                  border: '2px solid #111111',
+                  boxShadow: '4px 4px 0px #111111',
+                  padding: '16px'
+                }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <motion.span
@@ -3284,7 +3387,7 @@ export default function App() {
                     <span className="animate-cursor-blink">█</span>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             </section>
           </main>
         </div>
