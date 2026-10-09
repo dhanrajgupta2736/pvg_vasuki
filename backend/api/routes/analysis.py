@@ -56,18 +56,19 @@ async def start_analysis(
     scan_id = str(job.id)
     
     # Run pipeline in background
-    background_tasks.add_task(_run_pipeline_task, scan_id, req.repo_url)
+    branch_name = req.branch or "main"
+    background_tasks.add_task(_run_pipeline_task, scan_id, req.repo_url, branch_name)
     
     return AnalysisResponse(
         scan_id=scan_id,
         status="pending",
-        message=f"VASUKI pipeline started for {req.repo_url}",
+        message=f"VASUKI pipeline started for {req.repo_url} on branch {branch_name}",
     )
 
 
-async def _run_pipeline_task(scan_id: str, repo_url: str):
+async def _run_pipeline_task(scan_id: str, repo_url: str, branch: str = "main"):
     """Background task wrapper for the pipeline."""
-    await run_full_pipeline(scan_id, repo_url)
+    await run_full_pipeline(scan_id, repo_url, branch)
 
 
 @router.get("/{scan_id}")

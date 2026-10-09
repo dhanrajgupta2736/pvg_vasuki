@@ -70,6 +70,7 @@ async def create_pull_request(
     vulnerabilities: list[dict],
     confidence_score: float,
     scan_id: str,
+    base_branch: str = "main",
 ) -> dict:
     """Create a GitHub PR via REST API."""
     
@@ -83,7 +84,7 @@ async def create_pull_request(
         await emit(scan_id, f"❌ {e}", level="error")
         return {"pr_url": "", "pr_number": 0}
     
-    await emit(scan_id, f"🔀 Creating Pull Request on {owner}/{repo}...")
+    await emit(scan_id, f"🔀 Creating Pull Request on {owner}/{repo} (target base: {base_branch})...")
     
     # Build PR title
     critical_count = sum(1 for v in vulnerabilities if v.get("severity") == "CRITICAL")
@@ -101,7 +102,7 @@ async def create_pull_request(
                 "title": title,
                 "body": pr_description,
                 "head": branch_name,
-                "base": "main",
+                "base": base_branch or "main",
                 "draft": True,  # Start as draft — requires human review
             },
             timeout=30.0,

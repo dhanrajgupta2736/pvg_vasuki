@@ -1,6 +1,6 @@
 """
-Pipeline Orchestrator — Runs all 4 agents in sequence
-Called by Celery worker task
+Pipeline Orchestrator — Runs all 4 agents in sequence with Hard Quality Gates
+Called by background task or worker
 """
 import asyncio
 import shutil
@@ -14,17 +14,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from agents.agent1_scanner  import run_scanner
 from agents.agent2_patcher  import run_patcher
 from agents.agent3_reviewer import run_reviewer
-from agents.agent4_tester   import run_tester
+from agents.agent4_tester   import run_baseline_tester, run_tester
 from services.github_service import push_branch, create_pull_request
 from core.database import AsyncSessionLocal
 from core.redis_client import publish_event, set_scan_state
 from models.scan_job import ScanJob, ScanStatus, AgentStatus
 
 
-async def emit_pipeline(scan_id: str, message: str, data: dict = None):
+async def emit_pipeline(scan_id: str, message: str, data: dict = None, level: str = "info"):
     await publish_event(scan_id, {
         "agent": "orchestrator",
-        "level": "info",
+        "level": level,
         "message": message,
         "data": data or {},
     })
@@ -39,16 +39,17 @@ async def _update_job(scan_id: str, **kwargs):
         await db.commit()
 
 
-async def run_full_pipeline(scan_id: str, repo_url: str):
+async def run_full_pipeline(scan_id: str, repo_url: str, branch: str = "main"):
     """
-    Master orchestrator — runs all 4 agents in sequence.
+    Master orchestrator — runs all 4 agents in sequence with empirical quality gates.
     Updates DB and Redis at each stage.
     """
     start_time = time.time()
     repo_path  = None
+    target_branch = branch or "main"
     
-    await emit_pipeline(scan_id, "🚀 VASUKI pipeline starting...", {"repo_url": repo_url})
-    await set_scan_state(scan_id, {"status": "starting", "progress": 0})
+    await emit_pipeline(scan_id, f"🚀 VASUKI pipeline starting for {repo_url} (branch: {target_branch})...", {"repo_url": repo_url, "branch": target_branch})
+    await set_scan_state(scan_id, {"status": "starting", "progress": 0, "branch": target_branch})
     
     try:
         # ── AGENT 1: SCANNER ────────────────────────────────────
@@ -56,7 +57,7 @@ async def run_full_pipeline(scan_id: str, repo_url: str):
         await emit_pipeline(scan_id, "═══ AGENT 1: RECON (Scanner) ═══", {"progress": 10})
         await set_scan_state(scan_id, {"status": "scanning", "progress": 10, "active_agent": "scanner"})
         
-        scanner_result = await run_scanner(repo_url, scan_id)
+        scanner_result = await run_scanner(repo_url, scan_id, branch=target_branch)
         repo_path      = scanner_result["repo_path"]
         vulnerabilities = scanner_result["vulnerabilities"]
         blast_radius    = scanner_result["blast_radius"]
@@ -70,7 +71,7 @@ async def run_full_pipeline(scan_id: str, repo_url: str):
         await set_scan_state(scan_id, {"status": "scanning", "progress": 25, "vulns_found": len(vulnerabilities)})
         
         if not vulnerabilities:
-            await emit_pipeline(scan_id, "✅ No vulnerabilities found — repository is clean!")
+            await emit_pipeline(scan_id, "✅ No vulnerabilities found — repository is secure!")
             await _update_job(
                 scan_id,
                 status=ScanStatus.COMPLETED,
@@ -78,6 +79,10 @@ async def run_full_pipeline(scan_id: str, repo_url: str):
                 completed_at=datetime.utcnow(),
             )
             return
+
+        # ── PRE-PATCH TEST BASELINE ─────────────────────────────
+        await emit_pipeline(scan_id, "🧪 Capturing empirical pre-patch test baseline...")
+        baseline_test_results = await run_baseline_tester(repo_path, scan_id)
         
         # ── AGENT 2: PATCHER ────────────────────────────────────
         await _update_job(scan_id, status=ScanStatus.PATCHING, agent_patcher=AgentStatus.RUNNING)
@@ -91,6 +96,12 @@ async def run_full_pipeline(scan_id: str, repo_url: str):
         await _update_job(scan_id, agent_patcher=AgentStatus.DONE, patches=patches)
         await set_scan_state(scan_id, {"status": "patching", "progress": 55, "patches": len(patches)})
         
+        applied_patches = [p for p in patches if p.get("applied")]
+        if not applied_patches:
+            await emit_pipeline(scan_id, "⚠️ No valid patches were applied — stopping pipeline before review", level="warning")
+            await _update_job(scan_id, status=ScanStatus.COMPLETED, completed_at=datetime.utcnow())
+            return
+
         # ── AGENT 3: REVIEWER ───────────────────────────────────
         await _update_job(scan_id, status=ScanStatus.REVIEWING, agent_reviewer=AgentStatus.RUNNING)
         await emit_pipeline(scan_id, "═══ AGENT 3: SHIELD (Reviewer) ═══", {"progress": 60})
@@ -108,19 +119,46 @@ async def run_full_pipeline(scan_id: str, repo_url: str):
         )
         await set_scan_state(scan_id, {"status": "reviewing", "progress": 75, "confidence": confidence_score})
         
+        # ── HARD GATE 1: SECURITY REVIEW AUDIT ──────────────────
+        approved_count = review_notes.get("summary", {}).get("approved", 0)
+        if confidence_score < 60.0 or approved_count == 0:
+            block_msg = f"⛔ QUALITY GATE BLOCKED: Patches failed security review audit (Confidence: {confidence_score:.0f}%, Approved: {approved_count}/{len(patches)}). PR creation aborted."
+            await emit_pipeline(scan_id, block_msg, level="error")
+            await _update_job(
+                scan_id,
+                status=ScanStatus.COMPLETED,
+                confidence_score=confidence_score,
+                error_message=block_msg,
+                completed_at=datetime.utcnow(),
+            )
+            return
+
         # ── AGENT 4: TESTER ─────────────────────────────────────
         await _update_job(scan_id, status=ScanStatus.TESTING, agent_tester=AgentStatus.RUNNING)
         await emit_pipeline(scan_id, "═══ AGENT 4: PROOF (Tester) ═══", {"progress": 80})
         await set_scan_state(scan_id, {"status": "testing", "progress": 80, "active_agent": "tester"})
         
-        tester_result = await run_tester(repo_path, patches, scan_id)
+        tester_result = await run_tester(repo_path, patches, scan_id, baseline_results=baseline_test_results)
         test_results  = tester_result["test_results"]
         
         await _update_job(scan_id, agent_tester=AgentStatus.DONE, test_results=test_results)
         await set_scan_state(scan_id, {"status": "testing", "progress": 90})
         
+        # ── HARD GATE 2: TEST REGRESSION AUDIT ──────────────────
+        if test_results.get("regression_free") is False:
+            block_msg = "⛔ QUALITY GATE BLOCKED: Patch introduced test regressions into repository. PR creation aborted to prevent breaking build."
+            await emit_pipeline(scan_id, block_msg, level="error")
+            await _update_job(
+                scan_id,
+                status=ScanStatus.COMPLETED,
+                confidence_score=confidence_score,
+                error_message=block_msg,
+                completed_at=datetime.utcnow(),
+            )
+            return
+
         # ── GITHUB PR ───────────────────────────────────────────
-        await emit_pipeline(scan_id, "═══ CREATING GITHUB PR ═══", {"progress": 93})
+        await emit_pipeline(scan_id, f"═══ CREATING GITHUB PR (Target Base: {target_branch}) ═══", {"progress": 93})
         
         pr_description = test_results.get("pr_description", "VASUKI automated security patch")
         
@@ -132,6 +170,7 @@ async def run_full_pipeline(scan_id: str, repo_url: str):
             pr_info = await create_pull_request(
                 repo_url, branch_name, pr_description,
                 vulnerabilities, confidence_score, scan_id,
+                base_branch=target_branch,
             )
         
         # ── FINALIZE ────────────────────────────────────────────
@@ -155,12 +194,12 @@ async def run_full_pipeline(scan_id: str, repo_url: str):
         await emit_pipeline(
             scan_id,
             f"🏆 VASUKI COMPLETE in {elapsed}s — {len(vulnerabilities)} vulns found, "
-            f"{sum(1 for p in patches if p.get('applied'))} patched, "
+            f"{len(applied_patches)} patched, "
             f"{confidence_score:.0f}% confidence",
             {
                 "elapsed_seconds": elapsed,
                 "vulnerabilities": len(vulnerabilities),
-                "patches_applied": sum(1 for p in patches if p.get("applied")),
+                "patches_applied": len(applied_patches),
                 "confidence_score": confidence_score,
                 "pr_url": pr_info.get("pr_url", ""),
                 "status": "completed",
@@ -168,7 +207,7 @@ async def run_full_pipeline(scan_id: str, repo_url: str):
         )
     
     except Exception as e:
-        await emit_pipeline(scan_id, f"💥 Pipeline failed: {str(e)}", {"error": str(e)})
+        await emit_pipeline(scan_id, f"💥 Pipeline failed: {str(e)}", {"error": str(e)}, level="error")
         await _update_job(
             scan_id,
             status=ScanStatus.FAILED,

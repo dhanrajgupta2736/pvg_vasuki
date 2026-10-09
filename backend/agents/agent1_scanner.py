@@ -49,15 +49,16 @@ async def emit(scan_id: str, message: str, data: dict = None, level: str = "info
     })
 
 
-async def clone_repo(repo_url: str, scan_id: str) -> str:
+async def clone_repo(repo_url: str, scan_id: str, branch: str = "main") -> str:
     """Clone the repo into a temp directory, return path."""
     tmp_dir = tempfile.mkdtemp(prefix=f"vasuki_{scan_id}_")
-    await emit(scan_id, f"📥 Cloning repository: {repo_url}")
+    target_branch = branch or "main"
+    await emit(scan_id, f"📥 Cloning repository: {repo_url} (branch: {target_branch})")
     
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(
         None,
-        lambda: Repo.clone_from(repo_url, tmp_dir, depth=1)
+        lambda: Repo.clone_from(repo_url, tmp_dir, depth=1, branch=target_branch)
     )
     await emit(scan_id, f"✅ Repository cloned to {tmp_dir}")
     return tmp_dir
@@ -77,8 +78,9 @@ async def run_builtin_sast_scan(repo_path: str, scan_id: str) -> list[dict]:
             "regex": r'(?i)(?:query|sql)\s*=\s*f["\'].*(?:SELECT|UPDATE|DELETE|INSERT).*\{|(?:cursor\.execute|execute_query|query|session\.execute)\s*\(\s*(?:f["\'][^"\']*(?:SELECT|UPDATE|DELETE|INSERT)[^"\']*\{|["\'][^"\']*(?:SELECT|UPDATE|DELETE|INSERT)[^"\']*["\']\s*%)|f["\']SELECT\s+.*\{',
             "category": "sql-injection",
             "severity": "CRITICAL",
+            "cwe_id": "CWE-89",
             "message": "SQL Injection vulnerability: Raw dynamic SQL query concatenated with untrusted input.",
-            "cve": "CVE-2023-22809",
+            "cve": None,
             "fix": "Use parameterized queries with prepared statement placeholders instead of string formatting.",
         },
         {
@@ -86,8 +88,9 @@ async def run_builtin_sast_scan(repo_path: str, scan_id: str) -> list[dict]:
             "regex": r'(os\.system\s*\(|subprocess\.(?:Popen|run|call)\s*\([^)]*shell\s*=\s*True)',
             "category": "command-injection",
             "severity": "CRITICAL",
+            "cwe_id": "CWE-78",
             "message": "Command Injection vulnerability: System shell execution executed with unescaped arguments.",
-            "cve": "CVE-2024-21626",
+            "cve": None,
             "fix": "Pass command arguments as a list with shell=False, or sanitize with shlex.quote().",
         },
         {
@@ -95,8 +98,9 @@ async def run_builtin_sast_scan(repo_path: str, scan_id: str) -> list[dict]:
             "regex": r'(?i)(?:api_key|secret_key|private_key|aws_secret|auth_token|jwt_secret)\s*=\s*["\']([a-zA-Z0-9_\-\.]{16,})["\']',
             "category": "secret-exposure",
             "severity": "HIGH",
+            "cwe_id": "CWE-798",
             "message": "Hardcoded Secret Exposure: Sensitive API credential embedded directly in source code.",
-            "cve": "CVE-2022-29078",
+            "cve": None,
             "fix": "Extract credential to environment variables or an enterprise secrets vault.",
         },
         {
@@ -104,8 +108,9 @@ async def run_builtin_sast_scan(repo_path: str, scan_id: str) -> list[dict]:
             "regex": r'(pickle\.loads?\s*\(|yaml\.load\s*\([^,\n)]+\)|eval\s*\(|exec\s*\()',
             "category": "insecure-deserialization",
             "severity": "HIGH",
+            "cwe_id": "CWE-502",
             "message": "Insecure Deserialization / Dynamic Code Execution: Arbitrary code execution risk.",
-            "cve": "CVE-2023-43642",
+            "cve": None,
             "fix": "Use safe serializers such as json.loads() or yaml.safe_load().",
         },
         {
@@ -113,17 +118,29 @@ async def run_builtin_sast_scan(repo_path: str, scan_id: str) -> list[dict]:
             "regex": r'(?i)(open\s*\(\s*(?:f["\'][^"\']*\{[^"\']*(?:file|path|name)[^"\']*\}|file_path|path|filename\b)|send_file\s*\([^,)]*(?:file|path))',
             "category": "path-traversal",
             "severity": "HIGH",
+            "cwe_id": "CWE-22",
             "message": "Path Traversal vulnerability: File path constructed from untrusted variables without canonicalization.",
-            "cve": "CVE-2023-38606",
+            "cve": None,
             "fix": "Canonicalize file path using os.path.abspath and assert that it resides within the intended directory.",
+        },
+        {
+            "id": "vasuki-idor-01",
+            "regex": r'(?i)(?:cursor\.execute|query|select)\s*\(\s*["\']SELECT\s+.*\s+FROM\s+users\s+WHERE\s+id\s*=\s*\?\s*["\']\s*,\s*\(\s*(?:user_id|id)\s*,\s*\)\)',
+            "category": "broken-access-control",
+            "severity": "HIGH",
+            "cwe_id": "CWE-639",
+            "message": "Broken Access Control (IDOR): Object retrieved directly from unverified route parameter without tenant authorization.",
+            "cve": None,
+            "fix": "Assert that authenticated session identity matches requested user/tenant ID before returning entity.",
         },
         {
             "id": "vasuki-xss-01",
             "regex": r'(dangerouslySetInnerHTML\s*=|innerHTML\s*=\s*|document\.write\s*\()',
             "category": "xss",
             "severity": "MEDIUM",
+            "cwe_id": "CWE-79",
             "message": "Cross-Site Scripting (XSS): Direct unescaped markup injection into DOM.",
-            "cve": "CVE-2024-21490",
+            "cve": None,
             "fix": "Sanitize HTML using DOMPurify before inserting into the DOM.",
         },
     ]
@@ -146,6 +163,7 @@ async def run_builtin_sast_scan(repo_path: str, scan_id: str) -> list[dict]:
                                 "line_start": line_idx + 1,
                                 "line_end": line_idx + 1,
                                 "severity": pattern["severity"],
+                                "cwe_id": pattern.get("cwe_id", "CWE-Other"),
                                 "message": pattern["message"],
                                 "code_snippet": line.strip()[:180],
                                 "cve_id": pattern["cve"],
@@ -162,22 +180,22 @@ async def run_builtin_sast_scan(repo_path: str, scan_id: str) -> list[dict]:
 
 async def run_semgrep(repo_path: str, scan_id: str) -> list[dict]:
     """Run semgrep on the repo and return structured findings, falling back to Native SAST."""
-    await emit(scan_id, "🔍 Running Semgrep SAST analysis...")
+    await emit(scan_id, "🔍 Running Semgrep SAST analysis with OWASP/Security rulesets...")
     
     # If semgrep is not installed or available on this system, gracefully fallback
     if not shutil.which("semgrep"):
         await emit(scan_id, "ℹ️ Semgrep binary not in PATH — utilizing VASUKI Native AST/SAST engine", level="info")
         return await run_builtin_sast_scan(repo_path, scan_id)
     
-    rules = ",".join(SEMGREP_RULES)
-    cmd = [
-        "semgrep", "scan",
-        "--config", "auto",
+    cmd = ["semgrep", "scan"]
+    for r in SEMGREP_RULES:
+        cmd.extend(["--config", r])
+    cmd.extend([
         "--json",
         "--quiet",
         "--timeout", "120",
         repo_path,
-    ]
+    ])
     
     loop = asyncio.get_event_loop()
     findings = []
@@ -345,14 +363,14 @@ async def calculate_blast_radius(repo_path: str, findings: list[dict], scan_id: 
 
 # ── Main Agent Entry Point ──────────────────────────────────────
 
-async def run_scanner(repo_url: str, scan_id: str) -> dict:
+async def run_scanner(repo_url: str, scan_id: str, branch: str = "main") -> dict:
     """
     Full scanner agent execution.
     Returns: { vulnerabilities, blast_radius, repo_path }
     """
     repo_path = None
     try:
-        repo_path = await clone_repo(repo_url, scan_id)
+        repo_path = await clone_repo(repo_url, scan_id, branch=branch)
         
         # Run all scans in parallel
         semgrep_task = asyncio.create_task(run_semgrep(repo_path, scan_id))

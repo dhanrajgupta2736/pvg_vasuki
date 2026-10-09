@@ -56,25 +56,9 @@ services:
       redis:
         condition: service_healthy
 
-  # ── Celery Worker (Agent task runner) ─────────────────
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: vasuki_worker
-    restart: unless-stopped
-    command: celery -A core.celery_app worker --loglevel=info --concurrency=4
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://vasuki:vasuki_pass@postgres:5432/vasuki_db
-      - REDIS_URL=redis://redis:6379/0
-    env_file:
-      - .env
-    volumes:
-      - ./:/app
-      - /var/run/docker.sock:/var/run/docker.sock
-    depends_on:
-      - redis
-      - postgres
+  # ── Pipeline Runner (FastAPI Background Tasks + Redis Pub/Sub) ──
+  # Note: Async pipeline tasks run directly inside the FastAPI application container
+  # utilizing Redis pub/sub for real-time WebSocket state distribution.
 
   # ── n8n Workflow Engine ────────────────────────────────
   n8n:

@@ -43,6 +43,7 @@ const SEVERITY_COLORS = { CRITICAL: '#E63946', HIGH: '#FF8C00', MEDIUM: '#FFD60A
 export default function App() {
   const [repoUrl, setRepoUrl] = useState(DEMO_PRESETS[0].url);
   const [branch, setBranch] = useState('main');
+  const [scanMode, setScanMode] = useState('live'); // 'live' | 'simulation'
   const [scanId, setScanId] = useState(null);
   const [status, setStatus] = useState('idle');
   const [activeTab, setActiveTab] = useState('sanctorum');
@@ -230,6 +231,7 @@ export default function App() {
 
   // Launch live scan
   const handleStartScan = async () => {
+    setScanMode('live');
     setStatus('running');
     setLogs([]);
     setVulnerabilities([]);
@@ -242,13 +244,13 @@ export default function App() {
     setCycleCount(c => c + 1);
 
     setAgents({
-      scanner: { state: 'running', label: 'RECON', sub: 'Scanning codebase...', role: 'Seeker' },
+      scanner: { state: 'running', label: 'RECON', sub: 'Scanning target codebase...', role: 'Seeker' },
       patcher: { state: 'idle', label: 'FORGE', sub: 'Awaiting vulnerabilities', role: 'Spell Coder' },
       reviewer: { state: 'idle', label: 'SHIELD', sub: 'Awaiting patches', role: 'Reviewer' },
       tester: { state: 'idle', label: 'PROOF', sub: 'Awaiting container validation', role: 'Deployer' }
     });
 
-    addLog('system', `🚀 Dispatching Autonomous VASUKI Pipeline for ${repoUrl}`, 'info');
+    addLog('system', `⚡ [LIVE PIPELINE] Dispatching real scan for ${repoUrl} (target branch: ${branch})`, 'info');
 
     try {
       const res = await fetch(`${API_BASE}/api/analysis/`, {
@@ -256,18 +258,40 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repo_url: repoUrl, branch })
       });
-      if (!res.ok) throw new Error(`API error: ${res.statusText}`);
+      if (!res.ok) {
+        const errPayload = await res.json().catch(() => ({}));
+        throw new Error(errPayload.detail || `Server returned ${res.status}: ${res.statusText}`);
+      }
       const data = await res.json();
       setScanId(data.scan_id);
-      addLog('orchestrator', `Job registered with Scan ID: ${data.scan_id}`, 'info');
+      addLog('orchestrator', `Live job registered with Scan ID: ${data.scan_id}`, 'info');
     } catch (err) {
-      addLog('system', `Live scan API offline. Engaging Simulation Mode...`, 'warning');
-      simulateFullDemo();
+      setStatus('failed');
+      setAgents({
+        scanner: { state: 'idle', label: 'RECON', sub: 'Failed', role: 'Seeker' },
+        patcher: { state: 'idle', label: 'FORGE', sub: 'Idle', role: 'Spell Coder' },
+        reviewer: { state: 'idle', label: 'SHIELD', sub: 'Idle', role: 'Reviewer' },
+        tester: { state: 'idle', label: 'PROOF', sub: 'Idle', role: 'Deployer' }
+      });
+      addLog('system', `❌ Live scan failed to start: ${err.message}. Ensure backend is running at ${API_BASE}. To view offline demo walkthrough, click "Canned Demo".`, 'error');
     }
   };
 
-  // Guaranteed Hackathon Interactive Simulation
+  // Explicit Canned Simulation Demonstration (Clearly labeled preset)
   const simulateFullDemo = async () => {
+    setScanMode('simulation');
+    setStatus('running');
+    setLogs([]);
+    setVulnerabilities([]);
+    setPatches([]);
+    setReviewNotes(null);
+    setTestResults(null);
+    setConfidenceScore(null);
+    setBlastRadius([]);
+    setPrUrl('');
+    setCycleCount(c => c + 1);
+
+    addLog('system', '🧪 [CANNED SIMULATION DEMO] Note: This is an offline pre-recorded scenario for UI demonstration. Use "Live Scan" for real repos.', 'warning');
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     const mockId = 'demo-' + Math.random().toString(36).substring(2, 9);
     setScanId(mockId);
@@ -479,8 +503,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* Search / Repo Input */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0', flex: '0 1 500px' }}>
+        {/* Search / Repo & Branch Input */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '0 1 540px' }}>
           <input
             type="text"
             value={repoUrl}
@@ -488,20 +512,42 @@ export default function App() {
             placeholder="https://github.com/org/repo"
             style={{
               flex: 1, background: 'var(--bg-paper)', border: 'var(--border-thin)',
-              borderRight: 'none', padding: '6px 12px', fontFamily: 'var(--font-mono)',
+              padding: '6px 10px', fontFamily: 'var(--font-mono)',
               fontSize: '0.7rem', outline: 'none', color: 'var(--bg-black)'
             }}
           />
-          <button
-            onClick={() => {}}
+          <input
+            type="text"
+            value={branch}
+            onChange={e => setBranch(e.target.value)}
+            placeholder="branch"
+            title="Target Branch"
             style={{
-              background: 'var(--bg-black)', border: 'var(--border-thin)',
-              padding: '6px 10px', cursor: 'pointer', display: 'flex',
-              alignItems: 'center', justifyContent: 'center'
+              width: '75px', background: 'var(--bg-paper)', border: 'var(--border-thin)',
+              padding: '6px 8px', fontFamily: 'var(--font-mono)',
+              fontSize: '0.7rem', outline: 'none', color: 'var(--bg-black)'
+            }}
+          />
+          <select
+            onChange={e => {
+              const preset = DEMO_PRESETS.find(p => p.url === e.target.value);
+              if (preset) {
+                setRepoUrl(preset.url);
+                setBranch(preset.branch);
+              }
+            }}
+            value={repoUrl}
+            style={{
+              background: 'var(--bg-paper)', border: 'var(--border-thin)',
+              padding: '6px 6px', fontFamily: 'var(--font-mono)',
+              fontSize: '0.65rem', outline: 'none', color: 'var(--bg-black)',
+              maxWidth: '130px'
             }}
           >
-            <Search size={14} color="#FFD60A" />
-          </button>
+            {DEMO_PRESETS.map((p, idx) => (
+              <option key={idx} value={p.url}>{p.name}</option>
+            ))}
+          </select>
         </div>
 
         {/* Tab Nav */}
@@ -519,11 +565,11 @@ export default function App() {
         </div>
 
         {/* Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             onClick={() => setIsPaused(!isPaused)}
             className="btn-secondary"
-            style={{ padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+            style={{ padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
           >
             {isPaused ? <Play size={12} /> : <Pause size={12} />}
             {isPaused ? 'Resume' : 'Pause'}
@@ -532,12 +578,29 @@ export default function App() {
             onClick={handleStartScan}
             disabled={status === 'running'}
             className="btn-primary"
-            style={{ padding: '6px 18px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            title="Dispatch real 4-agent pipeline to clone, scan, patch, test, and PR"
           >
-            {status === 'running' ? (
-              <><RefreshCw size={12} className="animate-rotate" /> Running...</>
+            {status === 'running' && scanMode === 'live' ? (
+              <><RefreshCw size={12} className="animate-rotate" /> Live Scanning...</>
             ) : (
-              <><Zap size={12} /> Cast Pipeline</>
+              <><Zap size={12} /> Live Scan</>
+            )}
+          </button>
+          <button
+            onClick={simulateFullDemo}
+            disabled={status === 'running'}
+            className="btn-secondary"
+            style={{
+              padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px',
+              borderColor: '#FF8C00', color: '#B23B00', background: '#FFF8E1'
+            }}
+            title="Play offline canned simulation demo"
+          >
+            {status === 'running' && scanMode === 'simulation' ? (
+              <><RefreshCw size={12} className="animate-rotate" /> Simulating...</>
+            ) : (
+              <><Sparkles size={12} color="#FF8C00" /> Canned Demo</>
             )}
           </button>
         </div>
@@ -638,13 +701,21 @@ export default function App() {
                     Constructivist Engine — Commit Stream: <strong>{repoUrl.split('/').pop() || 'pvg_vasuki'}</strong> ({scanId || 'awaiting'})
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="tag" style={{
+                    background: scanMode === 'live' ? 'var(--accent-green)' : '#FF8C00',
+                    color: '#fff',
+                    fontWeight: 700,
+                    letterSpacing: '0.04em'
+                  }}>
+                    {scanMode === 'live' ? '⚡ LIVE SCAN PIPELINE' : '🧪 CANNED DEMO SIMULATION'}
+                  </span>
                   <span className="tag" style={{ background: 'var(--accent-yellow)', borderColor: 'var(--bg-black)' }}>
-                    Cycle #{cycleCount} / {status === 'completed' ? 'Stable' : status === 'running' ? 'Active' : 'Idle'}
+                    Cycle #{cycleCount} / {status === 'completed' ? 'Stable' : status === 'running' ? 'Active' : status === 'failed' ? 'Failed' : 'Idle'}
                   </span>
                   {vulnerabilities.length > 0 && (
                     <span className="tag tag-critical">
-                      {vulnerabilities.filter(v => v.severity === 'CRITICAL').length} Critical Hex Flagged
+                      {vulnerabilities.filter(v => v.severity === 'CRITICAL').length} Critical Flaws Flagged
                     </span>
                   )}
                 </div>
@@ -1032,12 +1103,18 @@ export default function App() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0', marginBottom: '16px' }}>
                     <div className="stat-card">
                       <div className="stat-label">Pre-Patch Baseline</div>
-                      <div className="stat-value">{testResults.original_tests?.passed || 14} Passed</div>
+                      <div className="stat-value">
+                        {testResults.has_tests === false
+                          ? 'No Tests Detected'
+                          : `${testResults.original_tests?.passed ?? 0} Pass / ${testResults.original_tests?.failed ?? 0} Fail`}
+                      </div>
                     </div>
                     <div className="stat-card" style={{ borderLeft: 'none' }}>
                       <div className="stat-label">Post-Patch Outcome</div>
-                      <div className="stat-value" style={{ color: 'var(--accent-green)' }}>
-                        {testResults.patched_tests?.passed || 14} Passed / 0 Failed
+                      <div className="stat-value" style={{ color: testResults.regression_free ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                        {testResults.has_tests === false
+                          ? 'Unverified (No Suite)'
+                          : `${testResults.patched_tests?.passed ?? 0} Pass / ${testResults.patched_tests?.failed ?? 0} Fail`}
                       </div>
                     </div>
                     <div className="stat-card" style={{ borderLeft: 'none' }}>

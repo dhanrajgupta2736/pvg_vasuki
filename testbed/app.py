@@ -44,11 +44,13 @@ def login():
     return jsonify({"status": "failed", "message": "Invalid credentials"}), 401
 
 
-@app.route("/api/documents/<filename>", methods=["GET"])
-def get_document(filename):
+@app.route("/api/documents", methods=["GET"])
+@app.route("/api/documents/<path:filename>", methods=["GET"])
+def get_document(filename=None):
     # VULNERABILITY 2: Path Traversal
-    file_path = os.path.join(UPLOAD_DIR, filename)
-    if os.path.exists(file_path):
+    target = filename or request.args.get("file", "")
+    file_path = os.path.join(UPLOAD_DIR, target)
+    if target and os.path.exists(file_path):
         with open(file_path, "r", encoding="utf-8") as f:
             return jsonify({"content": f.read()}), 200
     return jsonify({"error": "File not found"}), 404

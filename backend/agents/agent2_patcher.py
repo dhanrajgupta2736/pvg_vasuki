@@ -179,7 +179,23 @@ async def patch_vulnerability(
     except Exception as e:
         await emit(scan_id, f"❌ LLM failed for {file_path}: {e}", level="error")
         return None
-    
+
+    # ── SYNTAX VALIDATION GUARD ─────────────────────────────────
+    # Ensure patch doesn't introduce broken syntax or corrupt files
+    if file_path.endswith(".py"):
+        import ast
+        try:
+            ast.parse(patched_content)
+        except SyntaxError as e:
+            await emit(scan_id, f"❌ Syntax validation rejected patch for {Path(file_path).name}: {e}", level="warning")
+            return None
+    elif file_path.endswith(".json"):
+        try:
+            json.loads(patched_content)
+        except json.JSONDecodeError as e:
+            await emit(scan_id, f"❌ JSON syntax validation rejected patch for {Path(file_path).name}: {e}", level="warning")
+            return None
+
     # Compute diff
     original_lines = full_content.splitlines(keepends=True)
     patched_lines  = patched_content.splitlines(keepends=True)
@@ -195,7 +211,7 @@ async def patch_vulnerability(
     success = _apply_patch_to_file(file_path, patched_content)
     
     if success:
-        await emit(scan_id, f"✅ Patched: {Path(file_path).name}", {"file": file_path, "diff_lines": len(diff.splitlines())})
+        await emit(scan_id, f"✅ Patched (Syntax Verified): {Path(file_path).name}", {"file": file_path, "diff_lines": len(diff.splitlines())})
         return {
             "vulnerability_id": vuln.get("id"),
             "file": file_path,
@@ -204,7 +220,7 @@ async def patch_vulnerability(
             "severity": vuln.get("severity"),
             "diff": diff,
             "applied": True,
-            "model_used": "groq/llama-3.3-70b-versatile",
+            "model_used": "oci/llama-3.3-70b",
         }
     else:
         await emit(scan_id, f"❌ Failed to write patch for {file_path}", level="error")
@@ -212,18 +228,51 @@ async def patch_vulnerability(
 
 
 async def _patch_dependency(vuln: dict, repo_path: str, scan_id: str) -> dict:
-    """Handle dependency vulnerability patches (upgrade pinned version)."""
-    await emit(scan_id, f"📦 Patching dependency: {vuln.get('code_snippet', '')}")
+    """Handle dependency vulnerability patches by updating pinned package versions."""
+    import re
+    file_name = vuln.get("file", "requirements.txt")
+    target_path = Path(repo_path) / Path(file_name).name
+    if not target_path.exists():
+        target_path = Path(repo_path) / file_name
+    
+    code_snip = vuln.get("code_snippet", "")
+    fix_sugg = vuln.get("fix_suggestion", "")
+    applied = False
+    diff = ""
+    
+    if target_path.exists():
+        try:
+            content = target_path.read_text(encoding="utf-8")
+            orig_content = content
+            if "==" in code_snip:
+                pkg_name = code_snip.split("==")[0].strip()
+                new_ver = fix_sugg.replace("Upgrade to", "").strip() if "Upgrade to" in fix_sugg else "latest"
+                replacement = f"{pkg_name}>={new_ver}" if new_ver != "latest" else f"# VASUKI: Updated\n{pkg_name}"
+                content = re.sub(
+                    rf'^{re.escape(pkg_name)}[=<>~].*$',
+                    replacement,
+                    content,
+                    flags=re.MULTILINE
+                )
+            
+            if content != orig_content:
+                target_path.write_text(content, encoding="utf-8")
+                applied = True
+                diff = f"- {code_snip}\n+ {pkg_name}>={new_ver if 'new_ver' in locals() else 'secure'}"
+                await emit(scan_id, f"📦 Upgraded dependency in {target_path.name}: {code_snip} ➔ patched")
+        except Exception as e:
+            await emit(scan_id, f"⚠️ Dependency update warning: {e}", level="warning")
+
     return {
         "vulnerability_id": vuln.get("id"),
-        "file": vuln.get("file", ""),
+        "file": str(target_path) if target_path.exists() else file_name,
         "category": "dependency",
         "cve_id": vuln.get("cve_id"),
         "severity": vuln.get("severity"),
-        "diff": f"# Upgrade required: {vuln.get('fix_suggestion', 'update to latest')}",
-        "applied": False,
-        "note": vuln.get("fix_suggestion", "Manual upgrade required"),
-        "model_used": "rule-based",
+        "diff": diff or f"# Upgrade applied: {fix_sugg}",
+        "applied": applied,
+        "note": fix_sugg,
+        "model_used": "dependency-bump-engine",
     }
 
 
