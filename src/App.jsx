@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
+import { BauhausAutonomousAgentsHeaderBar } from './components/BauhausAgentStatusIndicator';
 
 const API_BASE = '';
 const WS_BASE = typeof window !== 'undefined'
@@ -1604,6 +1605,17 @@ export default function App() {
           </motion.div>
         </div>
 
+        {/* ── 4 AUTONOMOUS AGENTS BAUHAUS STATUS INDICATOR IN DASHBOARD HEADER ── */}
+        <BauhausAutonomousAgentsHeaderBar
+          agentsState={agents}
+          status={status}
+          selectedIdx={selectedAgentIdx}
+          onSelectAgent={(idx) => {
+            setSelectedAgentIdx(idx);
+            setActiveChamber(sidebarAgents[idx]?.chamber || 'all');
+          }}
+        />
+
         {/* Center Navigation Tabs with Spring Active Pill */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           {[
@@ -2757,12 +2769,18 @@ export default function App() {
               </div>
 
               {/* ── ACTIVE ANOMALY MATRIX & HEX QUARANTINE STATUS ── */}
-              <div style={{
-                background: '#ffffff',
-                border: '2px solid #111111',
-                boxShadow: '4px 4px 0px #111111',
-                padding: '16px'
-              }}>
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 25, delay: 0.15 }}
+                whileHover={{ y: -3, x: -2, boxShadow: '6px 6px 0px #111111', transition: BRUTALIST_SPRING }}
+                style={{
+                  background: '#ffffff',
+                  border: '2px solid #111111',
+                  boxShadow: '4px 4px 0px #111111',
+                  padding: '16px'
+                }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className="font-mono" style={{
@@ -2918,7 +2936,7 @@ export default function App() {
                     );
                   })}
                 </div>
-              </div>
+              </motion.div>
             </section>
 
             {/* ── LOWER SECTION: ENCHANTED AUTONOMOUS EXECUTION CHAMBER ── */}
@@ -3004,17 +3022,23 @@ export default function App() {
               </div>
 
               {/* Signature Bauhaus Yellow Banner Header */}
-              <div style={{
-                background: '#ffcc00',
-                border: '2px solid #111111',
-                boxShadow: '4px 4px 0px #111111',
-                padding: '14px 18px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '10px'
-              }}>
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+                whileHover={{ y: -2, boxShadow: '6px 6px 0px #111111', transition: BRUTALIST_SPRING }}
+                style={{
+                  background: '#ffcc00',
+                  border: '2px solid #111111',
+                  boxShadow: '4px 4px 0px #111111',
+                  padding: '14px 18px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '10px'
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <motion.span
                     animate={{ rotate: [0, 180, 360] }}
@@ -3037,18 +3061,24 @@ export default function App() {
                     CVSS {vulnerabilities[activeVulnIndex]?.cvss_score}
                   </span>
                 </div>
-              </div>
+              </motion.div>
 
               {/* ── DEDICATED DISTINCT AI AGENT KINETIC VISUALIZER HUD ── */}
-              <div style={{
-                background: '#ffffff',
-                border: '2px solid #111111',
-                boxShadow: '4px 4px 0px #111111',
-                padding: '12px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px'
-              }}>
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+                whileHover={{ y: -3, x: -2, boxShadow: '6px 6px 0px #111111', transition: BRUTALIST_SPRING }}
+                style={{
+                  background: '#ffffff',
+                  border: '2px solid #111111',
+                  boxShadow: '4px 4px 0px #111111',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span className="font-mono" style={{
@@ -3119,7 +3149,7 @@ export default function App() {
                     {selectedAgentIdx === 4 && <HeraldTelemetryVisualizer isWorking={status === 'running' || selectedAgentIdx === 4} />}
                   </motion.div>
                 </AnimatePresence>
-              </div>
+              </motion.div>
 
               {/* Chamber Deep-Dive Grid with AnimatePresence */}
               <AnimatePresence mode="wait">
