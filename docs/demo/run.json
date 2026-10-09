@@ -1,0 +1,394 @@
+{
+  "scan_id": "cfa7c315-d9a0-4801-91c7-06915d6d9aad",
+  "repo_url": "https://github.com/dhanrajgupta2736/vasuki-security-lab",
+  "branch": "main",
+  "status": "completed",
+  "server_time": "2026-10-09T23:13:24.864597+00:00",
+  "agents": {
+    "scanner": "done",
+    "patcher": "done",
+    "reviewer": "done",
+    "tester": "done"
+  },
+  "vulnerabilities": [
+    {
+      "id": "python-dynamic-sql:app.py:41",
+      "rule_id": "python-dynamic-sql",
+      "file": "app.py",
+      "line_start": 41,
+      "line_end": 41,
+      "severity": "CRITICAL",
+      "category": "sql-injection",
+      "cwe_id": "CWE-89",
+      "cve_id": null,
+      "message": "A dynamically formatted SQL string reaches the database execution call.",
+      "source": "native-ast",
+      "code_snippet": "cursor.execute(query)"
+    },
+    {
+      "id": "flask-path-boundary:app.py:58",
+      "rule_id": "flask-path-boundary",
+      "file": "app.py",
+      "line_start": 58,
+      "line_end": 58,
+      "severity": "HIGH",
+      "category": "path-traversal",
+      "cwe_id": "CWE-22",
+      "cve_id": null,
+      "message": "A request handler opens a joined path without checking the resolved directory boundary.",
+      "source": "native-ast",
+      "code_snippet": "open(file_path, \"r\", encoding=\"utf-8\")"
+    },
+    {
+      "id": "flask-object-authorization:app.py:67",
+      "rule_id": "flask-object-authorization",
+      "file": "app.py",
+      "line_start": 67,
+      "line_end": 67,
+      "severity": "HIGH",
+      "category": "broken-access-control",
+      "cwe_id": "CWE-639",
+      "cve_id": null,
+      "message": "A user object is fetched using a route ID without a session ownership check.",
+      "source": "native-ast",
+      "code_snippet": "cursor.execute(\"SELECT id, username FROM users WHERE id = ?\", (user_id,))"
+    }
+  ],
+  "patches": [
+    {
+      "vulnerability_id": "python-dynamic-sql:app.py:41",
+      "file": "app.py",
+      "category": "sql-injection",
+      "cve_id": null,
+      "cwe_id": "CWE-89",
+      "severity": "CRITICAL",
+      "diff": "--- a/app.py\n+++ b/app.py\n@@ -36,9 +36,10 @@\n     password = data.get(\"password\", \"\")\n \n     # VULNERABILITY 1: SQL Injection via string formatting\n-    query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'\"\n+    # FIX: Use parameterized queries to prevent SQL injection\n+    query = \"SELECT * FROM users WHERE username = ? AND password = ?\"\n     cursor = db.cursor()\n-    cursor.execute(query)\n+    cursor.execute(query, (username, password))\n     user = cursor.fetchone()\n \n     if user:\n",
+      "applied": true,
+      "model_used": "oci/google.gemini-2.5-flash",
+      "final_diff": "diff --git a/app.py b/app.py\nindex a7d91e3..ffd3f40 100644\n--- a/app.py\n+++ b/app.py\n@@ -36,9 +36,10 @@ def login():\n     password = data.get(\"password\", \"\")\n \n     # VULNERABILITY 1: SQL Injection via string formatting\n-    query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'\"\n+    # FIX: Use parameterized queries to prevent SQL injection\n+    query = \"SELECT * FROM users WHERE username = ? AND password = ?\"\n     cursor = db.cursor()\n-    cursor.execute(query)\n+    cursor.execute(query, (username, password))\n     user = cursor.fetchone()\n \n     if user:\n@@ -53,9 +54,22 @@ def login():\n def get_document(filename=None):\n     # VULNERABILITY 2: Path Traversal\n     target = filename or request.args.get(\"file\", \"\")\n+    if not target:\n+        return jsonify({\"error\": \"Filename not provided\"}), 400\n+\n     file_path = os.path.join(UPLOAD_DIR, target)\n-    if target and os.path.exists(file_path):\n-        with open(file_path, \"r\", encoding=\"utf-8\") as f:\n+\n+    # FIX: Validate that the resolved path is within the UPLOAD_DIR\n+    # Use realpath to resolve any '..' or symlinks\n+    # Use commonpath to ensure the resolved path starts with UPLOAD_DIR\n+    resolved_file_path = os.path.realpath(file_path)\n+    resolved_upload_dir = os.path.realpath(UPLOAD_DIR)\n+\n+    if not os.path.commonpath([resolved_file_path, resolved_upload_dir]) == resolved_upload_dir:\n+        return jsonify({\"error\": \"Access denied: Path traversal attempt detected\"}), 403\n+\n+    if os.path.exists(resolved_file_path) and os.path.isfile(resolved_file_path):\n+        with open(resolved_file_path, \"r\", encoding=\"utf-8\") as f:\n             return jsonify({\"content\": f.read()}), 200\n     return jsonify({\"error\": \"File not found\"}), 404\n \n@@ -63,6 +77,13 @@ def get_document(filename=None):\n @app.route(\"/api/profile/<int:user_id>\", methods=[\"GET\"])\n def get_profile(user_id):\n     # VULNERABILITY 3: Broken Access Control (IDOR)\n+    # FIX: Ensure the requested user_id matches the logged-in user's ID\n+    if \"user_id\" not in session:\n+        return jsonify({\"error\": \"Unauthorized\"}), 401\n+    \n+    if session[\"user_id\"] != user_id:\n+        return jsonify({\"error\": \"Access denied\"}), 403\n+\n     cursor = db.cursor()\n     cursor.execute(\"SELECT id, username FROM users WHERE id = ?\", (user_id,))\n     user = cursor.fetchone()"
+    },
+    {
+      "vulnerability_id": "flask-path-boundary:app.py:58",
+      "file": "app.py",
+      "category": "path-traversal",
+      "cve_id": null,
+      "cwe_id": "CWE-22",
+      "severity": "HIGH",
+      "diff": "--- a/app.py\n+++ b/app.py\n@@ -54,9 +54,22 @@\n def get_document(filename=None):\n     # VULNERABILITY 2: Path Traversal\n     target = filename or request.args.get(\"file\", \"\")\n+    if not target:\n+        return jsonify({\"error\": \"Filename not provided\"}), 400\n+\n     file_path = os.path.join(UPLOAD_DIR, target)\n-    if target and os.path.exists(file_path):\n-        with open(file_path, \"r\", encoding=\"utf-8\") as f:\n+\n+    # FIX: Validate that the resolved path is within the UPLOAD_DIR\n+    # Use realpath to resolve any '..' or symlinks\n+    # Use commonpath to ensure the resolved path starts with UPLOAD_DIR\n+    resolved_file_path = os.path.realpath(file_path)\n+    resolved_upload_dir = os.path.realpath(UPLOAD_DIR)\n+\n+    if not os.path.commonpath([resolved_file_path, resolved_upload_dir]) == resolved_upload_dir:\n+        return jsonify({\"error\": \"Access denied: Path traversal attempt detected\"}), 403\n+\n+    if os.path.exists(resolved_file_path) and os.path.isfile(resolved_file_path):\n+        with open(resolved_file_path, \"r\", encoding=\"utf-8\") as f:\n             return jsonify({\"content\": f.read()}), 200\n     return jsonify({\"error\": \"File not found\"}), 404\n \n",
+      "applied": true,
+      "model_used": "oci/google.gemini-2.5-flash",
+      "final_diff": "diff --git a/app.py b/app.py\nindex a7d91e3..ffd3f40 100644\n--- a/app.py\n+++ b/app.py\n@@ -36,9 +36,10 @@ def login():\n     password = data.get(\"password\", \"\")\n \n     # VULNERABILITY 1: SQL Injection via string formatting\n-    query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'\"\n+    # FIX: Use parameterized queries to prevent SQL injection\n+    query = \"SELECT * FROM users WHERE username = ? AND password = ?\"\n     cursor = db.cursor()\n-    cursor.execute(query)\n+    cursor.execute(query, (username, password))\n     user = cursor.fetchone()\n \n     if user:\n@@ -53,9 +54,22 @@ def login():\n def get_document(filename=None):\n     # VULNERABILITY 2: Path Traversal\n     target = filename or request.args.get(\"file\", \"\")\n+    if not target:\n+        return jsonify({\"error\": \"Filename not provided\"}), 400\n+\n     file_path = os.path.join(UPLOAD_DIR, target)\n-    if target and os.path.exists(file_path):\n-        with open(file_path, \"r\", encoding=\"utf-8\") as f:\n+\n+    # FIX: Validate that the resolved path is within the UPLOAD_DIR\n+    # Use realpath to resolve any '..' or symlinks\n+    # Use commonpath to ensure the resolved path starts with UPLOAD_DIR\n+    resolved_file_path = os.path.realpath(file_path)\n+    resolved_upload_dir = os.path.realpath(UPLOAD_DIR)\n+\n+    if not os.path.commonpath([resolved_file_path, resolved_upload_dir]) == resolved_upload_dir:\n+        return jsonify({\"error\": \"Access denied: Path traversal attempt detected\"}), 403\n+\n+    if os.path.exists(resolved_file_path) and os.path.isfile(resolved_file_path):\n+        with open(resolved_file_path, \"r\", encoding=\"utf-8\") as f:\n             return jsonify({\"content\": f.read()}), 200\n     return jsonify({\"error\": \"File not found\"}), 404\n \n@@ -63,6 +77,13 @@ def get_document(filename=None):\n @app.route(\"/api/profile/<int:user_id>\", methods=[\"GET\"])\n def get_profile(user_id):\n     # VULNERABILITY 3: Broken Access Control (IDOR)\n+    # FIX: Ensure the requested user_id matches the logged-in user's ID\n+    if \"user_id\" not in session:\n+        return jsonify({\"error\": \"Unauthorized\"}), 401\n+    \n+    if session[\"user_id\"] != user_id:\n+        return jsonify({\"error\": \"Access denied\"}), 403\n+\n     cursor = db.cursor()\n     cursor.execute(\"SELECT id, username FROM users WHERE id = ?\", (user_id,))\n     user = cursor.fetchone()"
+    },
+    {
+      "vulnerability_id": "flask-object-authorization:app.py:67",
+      "file": "app.py",
+      "category": "broken-access-control",
+      "cve_id": null,
+      "cwe_id": "CWE-639",
+      "severity": "HIGH",
+      "diff": "--- a/app.py\n+++ b/app.py\n@@ -77,6 +77,13 @@\n @app.route(\"/api/profile/<int:user_id>\", methods=[\"GET\"])\n def get_profile(user_id):\n     # VULNERABILITY 3: Broken Access Control (IDOR)\n+    # FIX: Ensure the requested user_id matches the logged-in user's ID\n+    if \"user_id\" not in session:\n+        return jsonify({\"error\": \"Unauthorized\"}), 401\n+    \n+    if session[\"user_id\"] != user_id:\n+        return jsonify({\"error\": \"Access denied\"}), 403\n+\n     cursor = db.cursor()\n     cursor.execute(\"SELECT id, username FROM users WHERE id = ?\", (user_id,))\n     user = cursor.fetchone()\n",
+      "applied": true,
+      "model_used": "oci/google.gemini-2.5-flash",
+      "final_diff": "diff --git a/app.py b/app.py\nindex a7d91e3..ffd3f40 100644\n--- a/app.py\n+++ b/app.py\n@@ -36,9 +36,10 @@ def login():\n     password = data.get(\"password\", \"\")\n \n     # VULNERABILITY 1: SQL Injection via string formatting\n-    query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'\"\n+    # FIX: Use parameterized queries to prevent SQL injection\n+    query = \"SELECT * FROM users WHERE username = ? AND password = ?\"\n     cursor = db.cursor()\n-    cursor.execute(query)\n+    cursor.execute(query, (username, password))\n     user = cursor.fetchone()\n \n     if user:\n@@ -53,9 +54,22 @@ def login():\n def get_document(filename=None):\n     # VULNERABILITY 2: Path Traversal\n     target = filename or request.args.get(\"file\", \"\")\n+    if not target:\n+        return jsonify({\"error\": \"Filename not provided\"}), 400\n+\n     file_path = os.path.join(UPLOAD_DIR, target)\n-    if target and os.path.exists(file_path):\n-        with open(file_path, \"r\", encoding=\"utf-8\") as f:\n+\n+    # FIX: Validate that the resolved path is within the UPLOAD_DIR\n+    # Use realpath to resolve any '..' or symlinks\n+    # Use commonpath to ensure the resolved path starts with UPLOAD_DIR\n+    resolved_file_path = os.path.realpath(file_path)\n+    resolved_upload_dir = os.path.realpath(UPLOAD_DIR)\n+\n+    if not os.path.commonpath([resolved_file_path, resolved_upload_dir]) == resolved_upload_dir:\n+        return jsonify({\"error\": \"Access denied: Path traversal attempt detected\"}), 403\n+\n+    if os.path.exists(resolved_file_path) and os.path.isfile(resolved_file_path):\n+        with open(resolved_file_path, \"r\", encoding=\"utf-8\") as f:\n             return jsonify({\"content\": f.read()}), 200\n     return jsonify({\"error\": \"File not found\"}), 404\n \n@@ -63,6 +77,13 @@ def get_document(filename=None):\n @app.route(\"/api/profile/<int:user_id>\", methods=[\"GET\"])\n def get_profile(user_id):\n     # VULNERABILITY 3: Broken Access Control (IDOR)\n+    # FIX: Ensure the requested user_id matches the logged-in user's ID\n+    if \"user_id\" not in session:\n+        return jsonify({\"error\": \"Unauthorized\"}), 401\n+    \n+    if session[\"user_id\"] != user_id:\n+        return jsonify({\"error\": \"Access denied\"}), 403\n+\n     cursor = db.cursor()\n     cursor.execute(\"SELECT id, username FROM users WHERE id = ?\", (user_id,))\n     user = cursor.fetchone()"
+    }
+  ],
+  "review_notes": {
+    "individual_reviews": [
+      {
+        "patch_id": "python-dynamic-sql:app.py:41",
+        "file": "app.py",
+        "patch_fixes_vuln": true,
+        "introduces_new_vulns": false,
+        "confidence_score": 100,
+        "recommendation": "approve",
+        "logic_break_risk": "pending-test-verification",
+        "reasoning": "Target rule no longer matches; syntax passes. Runtime proof is required.",
+        "semgrep_result": "Re-scan passed"
+      },
+      {
+        "patch_id": "flask-path-boundary:app.py:58",
+        "file": "app.py",
+        "patch_fixes_vuln": true,
+        "introduces_new_vulns": false,
+        "confidence_score": 100,
+        "recommendation": "approve",
+        "logic_break_risk": "pending-test-verification",
+        "reasoning": "Target rule no longer matches; syntax passes. Runtime proof is required.",
+        "semgrep_result": "Re-scan passed"
+      },
+      {
+        "patch_id": "flask-object-authorization:app.py:67",
+        "file": "app.py",
+        "patch_fixes_vuln": true,
+        "introduces_new_vulns": false,
+        "confidence_score": 100,
+        "recommendation": "approve",
+        "logic_break_risk": "pending-test-verification",
+        "reasoning": "Target rule no longer matches; syntax passes. Runtime proof is required.",
+        "semgrep_result": "Re-scan passed"
+      }
+    ],
+    "summary": {
+      "approved": 3,
+      "rejected": 0,
+      "total_reviewed": 3
+    },
+    "remaining_findings": [],
+    "new_findings": [],
+    "syntax_errors": [],
+    "all_findings_resolved": true
+  },
+  "test_results": {
+    "source": "github",
+    "project_path": "",
+    "publish_pr": true,
+    "base_sha": "d0fbbf666eaf20f63206b8607024ffac2cf81b76",
+    "branch": "main",
+    "scanner": "native-ast",
+    "original_tests": {
+      "passed": 6,
+      "failed": 5,
+      "errors": 0,
+      "skipped": 0,
+      "total": 11,
+      "cases": [
+        {
+          "id": "tests.test_app::test_login_valid",
+          "name": "test_login_valid",
+          "status": "passed",
+          "duration": 0.045,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_login_invalid",
+          "name": "test_login_invalid",
+          "status": "passed",
+          "duration": 0.002,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_profile_lookup",
+          "name": "test_profile_lookup",
+          "status": "passed",
+          "duration": 0.003,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_nonexistent_profile",
+          "name": "test_nonexistent_profile",
+          "status": "passed",
+          "duration": 0.003,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_sqli_auth_bypass_blocked",
+          "name": "test_sqli_auth_bypass_blocked",
+          "status": "failed",
+          "duration": 0.08,
+          "security": true,
+          "message": "AssertionError: SECURITY REGRESSION: SQL injection authentication bypass succeeded!\nassert 200 == 401\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_path_traversal_exploit_blocked",
+          "name": "test_path_traversal_exploit_blocked",
+          "status": "failed",
+          "duration": 0.002,
+          "security": true,
+          "message": "AssertionError: SECURITY REGRESSION: Path traversal escaped root directory and read source file!\nassert 200 in (400, 403, 404)\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_idor_anonymous_access_blocked",
+          "name": "test_idor_anonymous_access_blocked",
+          "status": "failed",
+          "duration": 0.002,
+          "security": true,
+          "message": "assert 200 == 401\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_idor_cross_user_access_blocked",
+          "name": "test_idor_cross_user_access_blocked",
+          "status": "failed",
+          "duration": 0.003,
+          "security": true,
+          "message": "assert 200 == 403\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_owner_profile_access_preserved",
+          "name": "test_owner_profile_access_preserved",
+          "status": "passed",
+          "duration": 0.003,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_path_traversal_absolute_path_blocked",
+          "name": "test_path_traversal_absolute_path_blocked",
+          "status": "failed",
+          "duration": 0.002,
+          "security": true,
+          "message": "assert 200 in (400, 403, 404)\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_document_read_preserved",
+          "name": "test_document_read_preserved",
+          "status": "passed",
+          "duration": 0.002,
+          "security": false,
+          "message": ""
+        }
+      ],
+      "success": false,
+      "has_tests": true,
+      "label": "baseline",
+      "runner": "docker",
+      "exit_code": 1,
+      "output": "....FFFF.F.                                                              [100%]\n=================================== FAILURES ===================================\n________________________ test_sqli_auth_bypass_blocked _________________________\ntests/test_app.py:53: in test_sqli_auth_bypass_blocked\n    assert res.status_code == 401, \"SECURITY REGRESSION: SQL injection authentication bypass succeeded!\"\nE   AssertionError: SECURITY REGRESSION: SQL injection authentication bypass succeeded!\nE   assert 200 == 401\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n_____________________ test_path_traversal_exploit_blocked ______________________\ntests/test_app.py:63: in test_path_traversal_exploit_blocked\n    assert res.status_code in (400, 403, 404), \"SECURITY REGRESSION: Path traversal escaped root directory and read source file!\"\nE   AssertionError: SECURITY REGRESSION: Path traversal escaped root directory and read source file!\nE   assert 200 in (400, 403, 404)\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n______________________ test_idor_anonymous_access_blocked ______________________\ntests/test_app.py:68: in test_idor_anonymous_access_blocked\n    assert res.status_code == 401\nE   assert 200 == 401\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n_____________________ test_idor_cross_user_access_blocked ______________________\ntests/test_app.py:74: in test_idor_cross_user_access_blocked\n    assert res.status_code == 403\nE   assert 200 == 403\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n__________________ test_path_traversal_absolute_path_blocked ___________________\ntests/test_app.py:87: in test_path_traversal_absolute_path_blocked\n    assert res.status_code in (400, 403, 404)\nE   assert 200 in (400, 403, 404)\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n=========================== short test summary info ============================\nFAILED tests/test_app.py::test_sqli_auth_bypass_blocked - AssertionError: SEC...\nFAILED tests/test_app.py::test_path_traversal_exploit_blocked - AssertionErro...\nFAILED tests/test_app.py::test_idor_anonymous_access_blocked - assert 200 == 401\nFAILED tests/test_app.py::test_idor_cross_user_access_blocked - assert 200 ==...\nFAILED tests/test_app.py::test_path_traversal_absolute_path_blocked - assert ...\n5 failed, 6 passed in 0.81s\n",
+      "duration_seconds": 4.18
+    },
+    "patched_tests": {
+      "passed": 11,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "total": 11,
+      "cases": [
+        {
+          "id": "tests.test_app::test_login_valid",
+          "name": "test_login_valid",
+          "status": "passed",
+          "duration": 0.036,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_login_invalid",
+          "name": "test_login_invalid",
+          "status": "passed",
+          "duration": 0.002,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_profile_lookup",
+          "name": "test_profile_lookup",
+          "status": "passed",
+          "duration": 0.003,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_nonexistent_profile",
+          "name": "test_nonexistent_profile",
+          "status": "passed",
+          "duration": 0.003,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_sqli_auth_bypass_blocked",
+          "name": "test_sqli_auth_bypass_blocked",
+          "status": "passed",
+          "duration": 0.001,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_path_traversal_exploit_blocked",
+          "name": "test_path_traversal_exploit_blocked",
+          "status": "passed",
+          "duration": 0.009,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_idor_anonymous_access_blocked",
+          "name": "test_idor_anonymous_access_blocked",
+          "status": "passed",
+          "duration": 0.002,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_idor_cross_user_access_blocked",
+          "name": "test_idor_cross_user_access_blocked",
+          "status": "passed",
+          "duration": 0.003,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_owner_profile_access_preserved",
+          "name": "test_owner_profile_access_preserved",
+          "status": "passed",
+          "duration": 0.004,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_path_traversal_absolute_path_blocked",
+          "name": "test_path_traversal_absolute_path_blocked",
+          "status": "passed",
+          "duration": 0.001,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_document_read_preserved",
+          "name": "test_document_read_preserved",
+          "status": "passed",
+          "duration": 0.002,
+          "security": false,
+          "message": ""
+        }
+      ],
+      "success": true,
+      "has_tests": true,
+      "label": "patched",
+      "runner": "docker",
+      "exit_code": 0,
+      "output": "...........                                                              [100%]\n11 passed in 0.82s\n",
+      "duration_seconds": 3.97
+    },
+    "regression_free": true,
+    "regressions": [],
+    "missing_tests": [],
+    "fixed_tests": [
+      "tests.test_app::test_sqli_auth_bypass_blocked",
+      "tests.test_app::test_path_traversal_exploit_blocked",
+      "tests.test_app::test_idor_anonymous_access_blocked",
+      "tests.test_app::test_idor_cross_user_access_blocked",
+      "tests.test_app::test_path_traversal_absolute_path_blocked"
+    ],
+    "security_tests_passed": true,
+    "security_tests_count": 5,
+    "has_tests": true,
+    "patches_applied": 3,
+    "changed_lines": 29,
+    "verification_score": 100,
+    "patch_sha": "9f20362784b56376475e7746aa31ca00a9fb99a7",
+    "pr_description": "## Security issue and fix\n- CWE-89: `app.py` \u2014 A dynamically formatted SQL string reaches the database execution call.\n- CWE-22: `app.py` \u2014 A request handler opens a joined path without checking the resolved directory boundary.\n- CWE-639: `app.py` \u2014 A user object is fetched using a route ID without a session ownership check.\n\nThe patch binds SQL values, enforces filesystem boundaries, or validates object\nownership as applicable to the findings above. Inspect the file diffs for the\nspecific changes. Source checks used the same rules before and after patching.\n\n## Executed test evidence\n| Metric | Before | After |\n|---|---:|---:|\n| Passed | 6 | 11 |\n| Failed | 5 | 0 |\n| Errors | 0 | 0 |\n| Collected tests | 11 | 11 |\n\n- Runner: `docker`\n- Security tests passed: 5\n- Previously passing tests retained: True\n- Missing tests: 0\n- Final source findings: 0\n- Model / repair engine: `oci/google.gemini-2.5-flash`\n- Validation score: 100/100 (executed checks; not a probability)\n- Changed source lines: 29\n- Base commit: `d0fbbf666eaf20f63206b8607024ffac2cf81b76`\n- Validated patch commit: `9f20362784b56376475e7746aa31ca00a9fb99a7`\n- Scan ID: `cfa7c315-d9a0-4801-91c7-06915d6d9aad`\n\nTests that failed on the vulnerable baseline and now pass:\n- `tests.test_app::test_sqli_auth_bypass_blocked`\n- `tests.test_app::test_path_traversal_exploit_blocked`\n- `tests.test_app::test_idor_anonymous_access_blocked`\n- `tests.test_app::test_idor_cross_user_access_blocked`\n- `tests.test_app::test_path_traversal_absolute_path_blocked`\n\nGenerated by VASUKI. This draft PR includes automated evidence for human review.\n",
+    "pr_url": "https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/1",
+    "verification_checks": {
+      "source_rescan_clear": true,
+      "patched_suite_passed": true,
+      "baseline_coverage_preserved": true,
+      "security_exploits_blocked": true,
+      "diff_within_limit": true
+    },
+    "elapsed_seconds": 39.79,
+    "outcome": "Verified patches published in a real GitHub draft PR"
+  },
+  "confidence_score": 100.0,
+  "blast_radius": [
+    "app.py"
+  ],
+  "pr_url": "https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/1",
+  "pr_number": 1,
+  "error_message": "",
+  "created_at": "2026-10-09T23:10:54.913516",
+  "completed_at": "2026-10-09T23:11:34.708919"
+}

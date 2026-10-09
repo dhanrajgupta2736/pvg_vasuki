@@ -18,6 +18,7 @@ class ScanStatus(str, PyEnum):
     TESTING   = "testing"
     COMPLETED = "completed"
     FAILED    = "failed"
+    BLOCKED   = "blocked"
 
 
 class AgentStatus(str, PyEnum):

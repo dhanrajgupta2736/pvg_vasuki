@@ -7,6 +7,7 @@ import json
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from core.redis_client import subscribe_scan_events
+from services.repository import scan_directory
 
 router = APIRouter()
 
@@ -18,6 +19,18 @@ async def scan_websocket(websocket: WebSocket, scan_id: str):
     Works seamlessly with Redis or In-Memory fallback.
     """
     await websocket.accept()
+    try:
+        event_file = scan_directory(scan_id) / 'events.jsonl'
+    except ValueError:
+        await websocket.close(code=1008)
+        return
+    if event_file.exists():
+        for line in event_file.read_text(encoding='utf-8').splitlines():
+            event = json.loads(line)
+            await websocket.send_json(event)
+            if event.get('data', {}).get('status') in ('completed', 'failed', 'blocked'):
+                await websocket.close()
+                return
 
     await websocket.send_json({
         "agent": "system",
@@ -31,7 +44,7 @@ async def scan_websocket(websocket: WebSocket, scan_id: str):
             await websocket.send_json(event)
 
             # Close WebSocket when pipeline completes or fails
-            if event.get("data", {}).get("status") in ("completed", "failed"):
+            if event.get("data", {}).get("status") in ("completed", "failed", "blocked"):
                 await websocket.send_json({
                     "agent": "system",
                     "message": "Pipeline finished. Closing stream.",

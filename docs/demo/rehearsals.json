@@ -1,0 +1,92 @@
+[
+  {
+    "run": 1,
+    "scan_id": "31c987d7-96a3-407f-80ac-270a358eb9fb",
+    "status": "completed",
+    "seconds": 282.6,
+    "backend_seconds": 55.71,
+    "before_passed": 6,
+    "after_passed": 11,
+    "test_total": 11,
+    "runner": "docker",
+    "regression_free": true,
+    "score": 100,
+    "models": [
+      "oci/google.gemini-2.5-flash"
+    ],
+    "pr_url": "",
+    "error": ""
+  },
+  {
+    "run": 2,
+    "scan_id": "e83463c7-37a6-47b8-99a2-b4f742202842",
+    "status": "completed",
+    "seconds": 114.6,
+    "backend_seconds": 83.06,
+    "before_passed": 6,
+    "after_passed": 11,
+    "test_total": 11,
+    "runner": "docker",
+    "regression_free": true,
+    "score": 100,
+    "models": [
+      "oci/google.gemini-2.5-flash"
+    ],
+    "pr_url": "",
+    "error": ""
+  },
+  {
+    "run": 3,
+    "scan_id": "c3ef3252-8b3a-468d-b196-fca1999ed434",
+    "status": "completed",
+    "seconds": 61.9,
+    "backend_seconds": 55.11,
+    "before_passed": 6,
+    "after_passed": 11,
+    "test_total": 11,
+    "runner": "docker",
+    "regression_free": true,
+    "score": 100,
+    "models": [
+      "oci/google.gemini-2.5-flash"
+    ],
+    "pr_url": "",
+    "error": ""
+  },
+  {
+    "run": 4,
+    "scan_id": "91e5e4fa-50d0-447b-8e9c-57ef4c1b65c5",
+    "status": "completed",
+    "seconds": 45.2,
+    "backend_seconds": 42.12,
+    "before_passed": 6,
+    "after_passed": 11,
+    "test_total": 11,
+    "runner": "docker",
+    "regression_free": true,
+    "score": 100,
+    "models": [
+      "oci/google.gemini-2.5-flash"
+    ],
+    "pr_url": "",
+    "error": ""
+  },
+  {
+    "run": 5,
+    "scan_id": "cfa7c315-d9a0-4801-91c7-06915d6d9aad",
+    "status": "completed",
+    "seconds": 42.5,
+    "backend_seconds": 39.79,
+    "before_passed": 6,
+    "after_passed": 11,
+    "test_total": 11,
+    "runner": "docker",
+    "regression_free": true,
+    "score": 100,
+    "models": [
+      "oci/google.gemini-2.5-flash"
+    ],
+    "pr_url": "https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/1",
+    "error": ""
+  }
+]

@@ -3,6 +3,8 @@ Redis client + in-memory fallback for zero-downtime execution
 """
 import asyncio
 import json
+from datetime import datetime, timezone
+from uuid import uuid4
 from collections import defaultdict
 from typing import Optional, AsyncGenerator
 
@@ -12,6 +14,7 @@ except ImportError:
     aioredis = None
 
 from core.config import settings
+from services.repository import scan_directory, redact
 
 _redis_client = None
 _redis_available = None
@@ -77,7 +80,11 @@ async def get_redis():
 async def publish_event(scan_id: str, event: dict):
     """Publish an agent event for WebSocket streaming."""
     channel = f"vasuki:scan:{scan_id}"
+    event = {**event, 'event_id': str(uuid4()), 'timestamp': datetime.now(timezone.utc).isoformat()}
+    event['message'] = redact(event.get('message', ''))
     msg = json.dumps(event)
+    with (scan_directory(scan_id) / 'events.jsonl').open('a', encoding='utf-8') as log:
+        log.write(msg + '\n')
     if await is_redis_available():
         try:
             r = await get_redis()

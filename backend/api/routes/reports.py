@@ -1,6 +1,7 @@
 """Reports route — download full scan report as JSON"""
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from services.repository import scan_directory
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
@@ -31,3 +32,23 @@ async def get_full_report(scan_id: str, db: AsyncSession = Depends(get_db)):
         "created_at":       job.created_at.isoformat() if job.created_at else None,
         "completed_at":     job.completed_at.isoformat() if job.completed_at else None,
     })
+
+
+@router.get('/{scan_id}/patch')
+async def get_patch(scan_id: str, db: AsyncSession = Depends(get_db)):
+    if not await db.get(ScanJob, scan_id):
+        raise HTTPException(404, 'Scan not found')
+    path = scan_directory(scan_id) / 'patch.diff'
+    if not path.exists():
+        raise HTTPException(404, 'No patch generated yet')
+    return FileResponse(path, filename=f'vasuki-{scan_id[:8]}.diff', media_type='text/x-diff')
+
+
+@router.get('/{scan_id}/evidence')
+async def get_evidence(scan_id: str, db: AsyncSession = Depends(get_db)):
+    if not await db.get(ScanJob, scan_id):
+        raise HTTPException(404, 'Scan not found')
+    path = scan_directory(scan_id) / 'evidence.json'
+    if not path.exists():
+        raise HTTPException(404, 'Evidence is available after the run finishes')
+    return FileResponse(path, filename=f'vasuki-{scan_id[:8]}-evidence.json', media_type='application/json')

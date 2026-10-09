@@ -1,0 +1,14 @@
+.git
+.run
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/.venv
+**/artifacts
+**/.env
+**/*.db
+**/*.pem
+**/*.key
+*.jpeg
+*.png
+test_oci_genai.py

@@ -1,0 +1,56 @@
+diff --git a/app.py b/app.py
+index a7d91e3..ffd3f40 100644
+--- a/app.py
++++ b/app.py
+@@ -36,9 +36,10 @@ def login():
+     password = data.get("password", "")
+ 
+     # VULNERABILITY 1: SQL Injection via string formatting
+-    query = f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'"
++    # FIX: Use parameterized queries to prevent SQL injection
++    query = "SELECT * FROM users WHERE username = ? AND password = ?"
+     cursor = db.cursor()
+-    cursor.execute(query)
++    cursor.execute(query, (username, password))
+     user = cursor.fetchone()
+ 
+     if user:
+@@ -53,9 +54,22 @@ def login():
+ def get_document(filename=None):
+     # VULNERABILITY 2: Path Traversal
+     target = filename or request.args.get("file", "")
++    if not target:
++        return jsonify({"error": "Filename not provided"}), 400
++
+     file_path = os.path.join(UPLOAD_DIR, target)
+-    if target and os.path.exists(file_path):
+-        with open(file_path, "r", encoding="utf-8") as f:
++
++    # FIX: Validate that the resolved path is within the UPLOAD_DIR
++    # Use realpath to resolve any '..' or symlinks
++    # Use commonpath to ensure the resolved path starts with UPLOAD_DIR
++    resolved_file_path = os.path.realpath(file_path)
++    resolved_upload_dir = os.path.realpath(UPLOAD_DIR)
++
++    if not os.path.commonpath([resolved_file_path, resolved_upload_dir]) == resolved_upload_dir:
++        return jsonify({"error": "Access denied: Path traversal attempt detected"}), 403
++
++    if os.path.exists(resolved_file_path) and os.path.isfile(resolved_file_path):
++        with open(resolved_file_path, "r", encoding="utf-8") as f:
+             return jsonify({"content": f.read()}), 200
+     return jsonify({"error": "File not found"}), 404
+ 
+@@ -63,6 +77,13 @@ def get_document(filename=None):
+ @app.route("/api/profile/<int:user_id>", methods=["GET"])
+ def get_profile(user_id):
+     # VULNERABILITY 3: Broken Access Control (IDOR)
++    # FIX: Ensure the requested user_id matches the logged-in user's ID
++    if "user_id" not in session:
++        return jsonify({"error": "Unauthorized"}), 401
++    
++    if session["user_id"] != user_id:
++        return jsonify({"error": "Access denied"}), 403
++
+     cursor = db.cursor()
+     cursor.execute("SELECT id, username FROM users WHERE id = ?", (user_id,))
+     user = cursor.fetchone()
