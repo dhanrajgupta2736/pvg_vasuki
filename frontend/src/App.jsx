@@ -155,6 +155,54 @@ export default function App() {
     };
   }, [scanId]);
 
+  // Continuous polling synchronizer: ensures real live backend data is always fetched
+  useEffect(() => {
+    if (!scanId || scanId.startsWith('demo-') || status === 'completed' || status === 'failed') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/analysis/${scanId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.vulnerabilities && data.vulnerabilities.length > 0) {
+            setVulnerabilities(data.vulnerabilities);
+          }
+          if (data.patches && data.patches.length > 0) {
+            setPatches(data.patches);
+          }
+          if (data.review_notes) setReviewNotes(data.review_notes);
+          if (data.test_results) setTestResults(data.test_results);
+          if (data.confidence_score) setConfidenceScore(data.confidence_score);
+          if (data.blast_radius) setBlastRadius(data.blast_radius);
+          if (data.pr_url) setPrUrl(data.pr_url);
+          if (data.pr_number) setPrNumber(data.pr_number);
+
+          if (data.agents) {
+            setAgents(prev => ({
+              scanner: { ...prev.scanner, state: data.agents.scanner === 'done' ? 'done' : (data.agents.scanner === 'running' ? 'running' : 'idle') },
+              patcher: { ...prev.patcher, state: data.agents.patcher === 'done' ? 'done' : (data.agents.patcher === 'running' ? 'running' : 'idle') },
+              reviewer: { ...prev.reviewer, state: data.agents.reviewer === 'done' ? 'done' : (data.agents.reviewer === 'running' ? 'running' : 'idle') },
+              tester: { ...prev.tester, state: data.agents.tester === 'done' ? 'done' : (data.agents.tester === 'running' ? 'running' : 'idle') }
+            }));
+          }
+
+          if (data.status === 'completed') {
+            setStatus('completed');
+            triggerConfetti();
+            clearInterval(interval);
+          } else if (data.status === 'failed') {
+            setStatus('failed');
+            clearInterval(interval);
+          }
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [scanId, status]);
+
   const fetchScanDetails = async (id) => {
     try {
       const res = await fetch(`${API_BASE}/api/analysis/${id}`);
