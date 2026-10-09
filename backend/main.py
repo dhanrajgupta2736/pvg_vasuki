@@ -2,6 +2,26 @@
 VASUKI — Autonomous Security Sentinel
 FastAPI Entry Point
 """
+import os
+import shutil
+import glob
+from pathlib import Path
+
+# Auto-detect Git executable if not already in PATH
+if not shutil.which("git"):
+    candidates = [
+        os.path.expandvars(r"%LOCALAPPDATA%\GitHubDesktop\app-*\resources\app\git\cmd\git.exe"),
+        r"C:\Program Files\Git\cmd\git.exe",
+        r"C:\Program Files (x86)\Git\cmd\git.exe",
+    ]
+    for pattern in candidates:
+        matches = glob.glob(pattern)
+        if matches:
+            git_exe = matches[0]
+            os.environ["GIT_PYTHON_GIT_EXECUTABLE"] = git_exe
+            os.environ["PATH"] = os.path.dirname(git_exe) + os.pathsep + os.environ.get("PATH", "")
+            break
+
 import asyncio
 from contextlib import asynccontextmanager
 

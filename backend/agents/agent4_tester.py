@@ -17,8 +17,13 @@ import time
 from pathlib import Path
 from typing import Optional
 
-import docker
-from docker.errors import DockerException
+try:
+    import docker
+    from docker.errors import DockerException
+except ImportError:
+    docker = None
+    class DockerException(Exception):
+        pass
 
 from core.config import settings
 from core.redis_client import publish_event
@@ -138,11 +143,15 @@ async def run_tests_in_container(
     loop = asyncio.get_event_loop()
     
     def _sync_run_container():
+        if docker is None:
+            raise DockerException("Docker library is not installed")
         client = docker.from_env()
         
+        install_cmd = project_info.get("install_cmd", "")
+        test_cmd = project_info.get("test_cmd", "")
         container = client.containers.run(
             image=project_info["image"],
-            command=f"bash -c 'cd /app && {project_info[\"install_cmd\"]} && {project_info[\"test_cmd\"]}'",
+            command=f"bash -c 'cd /app && {install_cmd} && {test_cmd}'",
             volumes={repo_path: {"bind": "/app", "mode": "rw"}},
             working_dir="/app",
             remove=True,

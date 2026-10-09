@@ -52,5 +52,8 @@ $RECYCLE.BIN/
 
 # Temporary scan files
 tmp/
+*.db
+*.sqlite3
 vasuki_*.db
 vasuki_db.sqlite*
+backend/vasuki.db

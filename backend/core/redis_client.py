@@ -6,7 +6,11 @@ import json
 from collections import defaultdict
 from typing import Optional, AsyncGenerator
 
-import redis.asyncio as aioredis
+try:
+    import redis.asyncio as aioredis
+except ImportError:
+    aioredis = None
+
 from core.config import settings
 
 _redis_client = None
@@ -44,6 +48,9 @@ _mem_bus = InMemoryBus()
 
 async def is_redis_available() -> bool:
     global _redis_available, _redis_client
+    if aioredis is None:
+        _redis_available = False
+        return False
     if _redis_available is not None:
         return _redis_available
     try:
