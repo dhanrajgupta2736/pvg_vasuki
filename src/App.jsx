@@ -5,6 +5,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { BauhausAutonomousAgentsHeaderBar } from './components/BauhausAgentStatusIndicator';
+import AgentCharacterPopPage from './components/AgentCharacterPopPage';
 import ReconPage from './pages/ReconPage';
 import ForgePage from './pages/ForgePage';
 import ShieldPage from './pages/ShieldPage';
@@ -1123,11 +1124,19 @@ export default function App() {
   const [activeNav, setActiveNav] = useState('sanctorum'); // sanctorum, telemetry, grimoire, pensieve, prophet
   const [activeChamber, setActiveChamber] = useState('all'); // all, recon, forge, shield, proof
   const [selectedAgentIdx, setSelectedAgentIdx] = useState(0);
+  const [isPopPageOpen, setIsPopPageOpen] = useState(false);
+  const [popAgentIdx, setPopAgentIdx] = useState(0);
   const [activeVulnIndex, setActiveVulnIndex] = useState(0);
   const [speedMultiplier, setSpeedMultiplier] = useState(1.5);
   const [severityFilter, setSeverityFilter] = useState('ALL');
   const [copiedDiff, setCopiedDiff] = useState(false);
   const [hoveredBarIndex, setHoveredBarIndex] = useState(null);
+
+  const handlePopAgentPage = (idx = 0) => {
+    setPopAgentIdx(idx);
+    setSelectedAgentIdx(idx);
+    setIsPopPageOpen(true);
+  };
 
   const [agents, setAgents] = useState({
     scanner: { state: 'SCAN', sub: 'Scanning AST Nodes' },
@@ -1611,18 +1620,48 @@ export default function App() {
         </div>
 
         {/* ── 4 AUTONOMOUS AGENTS BAUHAUS STATUS INDICATOR IN DASHBOARD HEADER ── */}
-        <BauhausAutonomousAgentsHeaderBar
-          agentsState={agents}
-          status={status}
-          selectedIdx={selectedAgentIdx}
-          onSelectAgent={(idx) => {
-            setSelectedAgentIdx(idx);
-            const agentPages = ['recon', 'forge', 'shield', 'proof', 'herald'];
-            setActiveNav(agentPages[idx] || 'sanctorum');
-            setActiveChamber(sidebarAgents[idx]?.chamber || 'all');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <BauhausAutonomousAgentsHeaderBar
+            agentsState={agents}
+            status={status}
+            selectedIdx={selectedAgentIdx}
+            onSelectAgent={(idx) => {
+              handlePopAgentPage(idx);
+            }}
+          />
+
+          {/* Quick Pop Page Button */}
+          <motion.button
+            whileHover={{ scale: 1.05, y: -1 }}
+            whileTap={{ scale: 0.95 }}
+            type="button"
+            onClick={() => handlePopAgentPage(selectedAgentIdx)}
+            className="bauhaus-btn"
+            style={{
+              background: '#ffcc00',
+              color: '#111111',
+              border: '2px solid #111111',
+              boxShadow: '2px 2px 0px #111111',
+              padding: '4px 10px',
+              fontSize: '0.67rem',
+              fontWeight: 900,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer'
+            }}
+            title="Pop separate animated page with characteristic animations"
+          >
+            <motion.span
+              animate={{ rotate: [0, 15, -15, 0] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+            >
+              ⚡
+            </motion.span>
+            <span>POP AGENT PAGE</span>
+            <span style={{ fontSize: '0.72rem' }}>↗</span>
+          </motion.button>
+        </div>
 
         {/* Center Navigation Tabs with Spring Active Pill */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
@@ -1818,6 +1857,34 @@ export default function App() {
             </div>
           </div>
 
+          {/* Prominent Sidebar Banner to Pop Agent Pages */}
+          <motion.button
+            whileHover={{ scale: 1.02, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            type="button"
+            onClick={() => handlePopAgentPage(selectedAgentIdx)}
+            style={{
+              width: '100%',
+              background: '#111111',
+              color: '#ffcc00',
+              border: '2px solid #111111',
+              boxShadow: '3px 3px 0px #ffcc00',
+              padding: '8px 10px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.68rem',
+              fontWeight: 900,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '4px'
+            }}
+            title="Pop separate animated page for selected agent"
+          >
+            <span>⚡ POP AGENT PAGE</span>
+            <span>OPEN ↗</span>
+          </motion.button>
+
           {/* 5 Stacked Brutalist Agent Cards with Tactile Motion Springs */}
           {sidebarAgents.map((ag) => {
             const isSelected = selectedAgentIdx === ag.idx;
@@ -1848,11 +1915,7 @@ export default function App() {
                   transition: { duration: 0.08 }
                 }}
                 onClick={() => {
-                  setSelectedAgentIdx(ag.idx);
-                  const agentPages = ['recon', 'forge', 'shield', 'proof', 'herald'];
-                  setActiveNav(agentPages[ag.idx] || 'sanctorum');
-                  setActiveChamber(ag.chamber);
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  handlePopAgentPage(ag.idx);
                 }}
                 className="bauhaus-card-interactive"
                 style={{
@@ -1863,8 +1926,10 @@ export default function App() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  gap: '8px'
+                  gap: '8px',
+                  cursor: 'pointer'
                 }}
+                title={`Click to POP separate animated page for ${ag.name}`}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                   <div className="font-mono" style={{
@@ -1906,8 +1971,19 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <AgentMiniMotion agentIdx={ag.idx} isWorking={isWorking || isSelected} />
+                  <span className="font-mono" style={{
+                    fontSize: '0.55rem',
+                    fontWeight: 900,
+                    padding: '2px 4px',
+                    background: '#111111',
+                    color: '#ffcc00',
+                    border: '1.5px solid #111111',
+                    flexShrink: 0
+                  }}>
+                    POP ↗
+                  </span>
                   <span className="font-mono" style={{
                     fontSize: '0.58rem',
                     fontWeight: 800,
@@ -2245,6 +2321,218 @@ export default function App() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* ── SEPARATE AGENT POP PAGES SHOWCASE (CHARACTERISTIC MOTIONS) ── */}
+            <section style={{
+              background: '#ffffff',
+              border: '3px solid #111111',
+              boxShadow: '6px 6px 0px #111111',
+              padding: '18px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px'
+            }}>
+              <div style={{
+                background: '#ffcc00',
+                border: '2px solid #111111',
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <motion.div
+                    animate={{ rotate: [0, 15, -15, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.8 }}
+                    style={{
+                      width: '24px',
+                      height: '24px',
+                      background: '#111111',
+                      color: '#ffcc00',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.8rem',
+                      fontWeight: 900
+                    }}
+                  >
+                    ⚡
+                  </motion.div>
+                  <div>
+                    <h2 className="font-display" style={{ fontSize: '0.88rem', fontWeight: 900, margin: 0, letterSpacing: '-0.01em' }}>
+                      SEPARATE AGENT POP PAGES (CHARACTERISTIC MOTIONS)
+                    </h2>
+                    <p style={{ margin: 0, fontSize: '0.66rem', color: '#111111', fontWeight: 600 }}>
+                      Click any agent below to pop open its dedicated interactive page with signature character animations, abilities, and live diagnostics
+                    </p>
+                  </div>
+                </div>
+
+                <span className="font-mono" style={{
+                  background: '#111111',
+                  color: '#ffffff',
+                  fontSize: '0.62rem',
+                  fontWeight: 800,
+                  padding: '3px 8px'
+                }}>
+                  NOT IN SIDEBAR • MODAL POP PORTAL
+                </span>
+              </div>
+
+              {/* 5 Distinct Characteristic Agent Pop Cards */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '12px'
+              }}>
+                {[
+                  {
+                    idx: 0,
+                    num: '01',
+                    name: 'RECON (SEEKER)',
+                    persona: 'Cybernetic Sentinel Eye',
+                    color: '#e02424',
+                    motionDesc: 'Radar sweep, laser look-tracking, pupil dilation & sonar pulses',
+                    statusKey: agents.scanner.state,
+                    role: agents.scanner.sub
+                  },
+                  {
+                    idx: 1,
+                    num: '02',
+                    name: 'FORGE (PATCHER)',
+                    persona: 'Molten Anvil Automaton',
+                    color: '#ffcc00',
+                    motionDesc: 'Kinetic hammer strikes, molten spark matrix & crucible steam',
+                    statusKey: agents.patcher.state,
+                    role: agents.patcher.sub
+                  },
+                  {
+                    idx: 2,
+                    num: '03',
+                    name: 'SHIELD (REVIEW)',
+                    persona: 'Sacred Aegis Forcefield',
+                    color: '#1d4ed8',
+                    motionDesc: 'Counter-rotating polyhedral shields & zero-hallucination lattice',
+                    statusKey: agents.reviewer.state,
+                    role: agents.reviewer.sub
+                  },
+                  {
+                    idx: 3,
+                    num: '04',
+                    name: 'PROOF (TESTER)',
+                    persona: 'Phosphor Oscilloscope Bot',
+                    color: '#15803d',
+                    motionDesc: 'Dynamic CRT phosphor sine waves & container pytest status beads',
+                    statusKey: agents.tester.state,
+                    role: agents.tester.sub
+                  },
+                  {
+                    idx: 4,
+                    num: '05',
+                    name: 'HERALD (DEPLOYER)',
+                    persona: 'Orbital Satellite Beacon',
+                    color: '#4338ca',
+                    motionDesc: 'Orbital satellite dish, electromagnetic radio waves & PR dispatch',
+                    statusKey: agents.deployer.state,
+                    role: agents.deployer.sub
+                  }
+                ].map((item) => (
+                  <motion.div
+                    key={item.num}
+                    whileHover={{ y: -4, boxShadow: '6px 6px 0px #111111' }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handlePopAgentPage(item.idx)}
+                    style={{
+                      background: '#faf7f0',
+                      border: '2.5px solid #111111',
+                      boxShadow: '3px 3px 0px #111111',
+                      padding: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                      cursor: 'pointer'
+                    }}
+                    title={`Click to pop separate animated page for ${item.name}`}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span className="font-mono" style={{
+                          background: item.color,
+                          color: item.color === '#ffcc00' ? '#111111' : '#ffffff',
+                          fontWeight: 900,
+                          fontSize: '0.62rem',
+                          padding: '2px 6px',
+                          border: '1px solid #111111'
+                        }}>
+                          {item.num} AGENT
+                        </span>
+                        <span className="font-mono" style={{
+                          fontSize: '0.58rem',
+                          fontWeight: 800,
+                          background: '#111111',
+                          color: '#ffcc00',
+                          padding: '2px 5px'
+                        }}>
+                          {item.statusKey}
+                        </span>
+                      </div>
+
+                      <div className="font-display" style={{ fontSize: '0.8rem', fontWeight: 900, color: '#111111', marginBottom: '2px' }}>
+                        {item.name}
+                      </div>
+
+                      <div style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        color: item.color === '#ffcc00' ? '#b45309' : item.color,
+                        marginBottom: '6px'
+                      }}>
+                        {item.persona}
+                      </div>
+
+                      <div style={{
+                        fontSize: '0.62rem',
+                        color: '#4a4842',
+                        lineHeight: 1.35,
+                        background: '#ffffff',
+                        border: '1px solid #111111',
+                        padding: '6px',
+                        marginBottom: '4px'
+                      }}>
+                        <strong>Motions:</strong> {item.motionDesc}
+                      </div>
+                    </div>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      type="button"
+                      className="bauhaus-btn"
+                      style={{
+                        width: '100%',
+                        padding: '6px 8px',
+                        fontSize: '0.66rem',
+                        fontWeight: 900,
+                        background: item.color,
+                        color: item.color === '#ffcc00' ? '#111111' : '#ffffff',
+                        border: '1.5px solid #111111',
+                        boxShadow: '2px 2px 0px #111111',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <span>⚡ POP {item.num} PAGE</span>
+                      <span>↗</span>
+                    </motion.button>
+                  </motion.div>
+                ))}
+              </div>
+            </section>
 
             {/* ── CONSTRUCTIVIST FRAMED TELEMETRY & ANOMALY ANALYTICS PANEL ── */}
             <section style={{
@@ -3503,6 +3791,30 @@ export default function App() {
           </main>
         </div>
       </div>
+
+      {/* ── SEPARATE POPPING PAGE FOR EACH AI AGENT WITH CHARACTERISTIC ANIMATIONS ── */}
+      <AgentCharacterPopPage
+        isOpen={isPopPageOpen}
+        agentIdx={popAgentIdx}
+        onClose={() => setIsPopPageOpen(false)}
+        onSelectAgent={(idx) => {
+          setPopAgentIdx(idx);
+          setSelectedAgentIdx(idx);
+        }}
+        onExpandToFullPage={(idx) => {
+          const agentPages = ['recon', 'forge', 'shield', 'proof', 'herald'];
+          setActiveNav(agentPages[idx] || 'sanctorum');
+          setIsPopPageOpen(false);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        status={status}
+        vulnerabilities={vulnerabilities}
+        patches={patches}
+        confidenceScore={confidenceScore}
+        testResults={testResults}
+        prUrl={prUrl}
+        prNumber={prNumber}
+      />
     </div>
   );
 }
