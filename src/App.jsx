@@ -359,6 +359,730 @@ function KineticMarquee({ targetRepo, activeCve, agentCount, confidence, speed, 
   );
 }
 
+/* ── AGENT 01: RECON (AST Seeker & Scanner) VISUALIZER ── */
+function ReconRadarVisualizer({ isWorking }) {
+  return (
+    <div style={{
+      position: 'relative',
+      width: '100%',
+      height: '160px',
+      background: '#090d16',
+      border: '2px solid #111111',
+      overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#38bdf8'
+    }}>
+      {/* Background Grid */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: 'linear-gradient(rgba(56, 189, 248, 0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(56, 189, 248, 0.08) 1px, transparent 1px)',
+        backgroundSize: '20px 20px'
+      }} />
+
+      {/* Range Rings */}
+      {[40, 80, 120].map((size, idx) => (
+        <div key={idx} style={{
+          position: 'absolute',
+          width: `${size}px`,
+          height: `${size}px`,
+          borderRadius: '50%',
+          border: '1px dashed rgba(56, 189, 248, 0.35)',
+          pointerEvents: 'none'
+        }} />
+      ))}
+
+      {/* Expanding Sonar Ping Ring */}
+      <motion.div
+        animate={{ scale: [0.2, 1.4], opacity: [1, 0] }}
+        transition={{ repeat: Infinity, duration: 2.2, ease: 'easeOut' }}
+        style={{
+          position: 'absolute',
+          width: '120px',
+          height: '120px',
+          borderRadius: '50%',
+          border: '2px solid #38bdf8',
+          pointerEvents: 'none'
+        }}
+      />
+
+      {/* Rotating Radar Sweep Cone */}
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ repeat: Infinity, duration: isWorking ? 1.8 : 3.5, ease: 'linear' }}
+        style={{
+          position: 'absolute',
+          width: '130px',
+          height: '130px',
+          borderRadius: '50%',
+          background: 'conic-gradient(from 0deg, rgba(56, 189, 248, 0.45) 0deg, transparent 60deg, transparent 360deg)',
+          pointerEvents: 'none'
+        }}
+      />
+
+      {/* Radar Center Dot */}
+      <div style={{
+        width: '8px',
+        height: '8px',
+        background: '#e02424',
+        border: '1.5px solid #ffffff',
+        zIndex: 2
+      }} />
+
+      {/* Blinking AST Flaw Targets */}
+      <motion.div
+        animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
+        transition={{ repeat: Infinity, duration: 1.2, delay: 0.2 }}
+        style={{
+          position: 'absolute',
+          top: '32px',
+          right: '28%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          zIndex: 3
+        }}
+      >
+        <span style={{ width: '7px', height: '7px', background: '#e02424', border: '1px solid #111' }} />
+        <span className="font-mono" style={{ fontSize: '0.55rem', fontWeight: 800, background: '#111', color: '#ffcc00', padding: '1px 3px' }}>
+          SQLi [HEX-004]
+        </span>
+      </motion.div>
+
+      <motion.div
+        animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+        transition={{ repeat: Infinity, duration: 1.4, delay: 0.7 }}
+        style={{
+          position: 'absolute',
+          bottom: '26px',
+          left: '24%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          zIndex: 3
+        }}
+      >
+        <span style={{ width: '6px', height: '6px', background: '#ffcc00', border: '1px solid #111' }} />
+        <span className="font-mono" style={{ fontSize: '0.55rem', fontWeight: 800, background: '#111', color: '#ffffff', padding: '1px 3px' }}>
+          IDOR [ANOM-102]
+        </span>
+      </motion.div>
+
+      {/* Crosshair Overlay */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: '50%',
+        width: '1px',
+        background: 'rgba(56, 189, 248, 0.25)'
+      }} />
+      <div style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: '50%',
+        height: '1px',
+        background: 'rgba(56, 189, 248, 0.25)'
+      }} />
+
+      {/* Top and Bottom HUD Badges */}
+      <div className="font-mono" style={{
+        position: 'absolute',
+        top: '6px',
+        left: '8px',
+        fontSize: '0.58rem',
+        fontWeight: 800,
+        color: '#38bdf8',
+        display: 'flex',
+        gap: '6px'
+      }}>
+        <span>RADAR: 360° SWEEP</span>
+        <span>•</span>
+        <span>1,420 AST NODES SWEPT</span>
+      </div>
+      <div className="font-mono" style={{
+        position: 'absolute',
+        bottom: '6px',
+        right: '8px',
+        fontSize: '0.58rem',
+        fontWeight: 800,
+        background: '#111111',
+        border: '1px solid #38bdf8',
+        padding: '2px 6px',
+        color: isWorking ? '#ffcc00' : '#38bdf8'
+      }}>
+        {isWorking ? 'TARGET ACQUISITION: IN PROGRESS' : 'SEEKER SCAN: LOCKED'}
+      </div>
+    </div>
+  );
+}
+
+/* ── AGENT 02: FORGE (Code Patcher & AST Synthesizer) VISUALIZER ── */
+function ForgeSynthesizerVisualizer({ isWorking }) {
+  return (
+    <div style={{
+      position: 'relative',
+      width: '100%',
+      height: '160px',
+      background: '#180f08',
+      border: '2px solid #111111',
+      overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#f59e0b'
+    }}>
+      {/* Background Heat Grid */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(245, 158, 11, 0.15) 0%, transparent 70%)'
+      }} />
+
+      {/* Hydraulic Code Press Brackets */}
+      <motion.div
+        animate={isWorking ? { x: [-14, -4, -14] } : { x: [-6, 0, -6] }}
+        transition={{ repeat: Infinity, duration: 1.1, ease: 'easeInOut' }}
+        className="font-mono"
+        style={{
+          position: 'absolute',
+          left: '30%',
+          fontSize: '2.5rem',
+          fontWeight: 900,
+          color: '#e02424',
+          userSelect: 'none'
+        }}
+      >
+        [
+      </motion.div>
+
+      <motion.div
+        animate={isWorking ? { x: [14, 4, 14] } : { x: [6, 0, 6] }}
+        transition={{ repeat: Infinity, duration: 1.1, ease: 'easeInOut' }}
+        className="font-mono"
+        style={{
+          position: 'absolute',
+          right: '30%',
+          fontSize: '2.5rem',
+          fontWeight: 900,
+          color: '#e02424',
+          userSelect: 'none'
+        }}
+      >
+        ]
+      </motion.div>
+
+      {/* Central Molten Code Core */}
+      <motion.div
+        animate={{ scale: [0.95, 1.05, 0.95], boxShadow: ['0 0 10px #f59e0b', '0 0 25px #e02424', '0 0 10px #f59e0b'] }}
+        transition={{ repeat: Infinity, duration: 1.5 }}
+        style={{
+          background: '#111111',
+          border: '2px solid #f59e0b',
+          padding: '8px 14px',
+          zIndex: 2,
+          textAlign: 'center'
+        }}
+      >
+        <div className="font-mono" style={{ fontSize: '0.62rem', fontWeight: 800, color: '#ffcc00' }}>
+          LCEL DIFF SYNTHESIZER
+        </div>
+        <div className="font-mono" style={{ fontSize: '0.72rem', fontWeight: 900, color: '#ffffff' }}>
+          + query = ? [BOUND]
+        </div>
+        <div className="font-mono" style={{ fontSize: '0.55rem', color: '#fca5a5' }}>
+          SYNTHESIS TEMP: 1850°K
+        </div>
+      </motion.div>
+
+      {/* Radiating Kinetic Sparks */}
+      {[
+        { x: -35, y: -25, delay: 0 },
+        { x: 32, y: -30, delay: 0.2 },
+        { x: -40, y: 20, delay: 0.4 },
+        { x: 36, y: 24, delay: 0.1 },
+        { x: 0, y: -45, delay: 0.3 },
+        { x: 45, y: 0, delay: 0.5 }
+      ].map((sp, i) => (
+        <motion.div
+          key={i}
+          animate={{
+            x: [0, sp.x, sp.x * 1.4],
+            y: [0, sp.y, sp.y * 1.4],
+            opacity: [1, 0.9, 0],
+            scale: [0.8, 1.5, 0]
+          }}
+          transition={{ repeat: Infinity, duration: isWorking ? 0.9 : 1.6, delay: sp.delay }}
+          style={{
+            position: 'absolute',
+            width: '4px',
+            height: '4px',
+            background: i % 2 === 0 ? '#ffcc00' : '#e02424',
+            borderRadius: '1px'
+          }}
+        />
+      ))}
+
+      {/* HUD Header & Status */}
+      <div className="font-mono" style={{
+        position: 'absolute',
+        top: '6px',
+        left: '8px',
+        fontSize: '0.58rem',
+        fontWeight: 800,
+        color: '#f59e0b',
+        display: 'flex',
+        gap: '6px'
+      }}>
+        <span>ANVIL: AST SURGICAL INKING</span>
+        <span>•</span>
+        <span>4 PATCHES COMPILED</span>
+      </div>
+      <div className="font-mono" style={{
+        position: 'absolute',
+        bottom: '6px',
+        right: '8px',
+        fontSize: '0.58rem',
+        fontWeight: 800,
+        background: '#111111',
+        border: '1px solid #f59e0b',
+        padding: '2px 6px',
+        color: isWorking ? '#ffcc00' : '#f59e0b'
+      }}>
+        {isWorking ? 'FORGING: DIFF INK APPLIED' : 'FORGE READY // LLAMA-3.3-70B'}
+      </div>
+    </div>
+  );
+}
+
+/* ── AGENT 03: SHIELD (Reviewer & Anti-Hallucination Barrier) VISUALIZER ── */
+function ShieldForcefieldVisualizer({ isWorking }) {
+  return (
+    <div style={{
+      position: 'relative',
+      width: '100%',
+      height: '160px',
+      background: '#0c0714',
+      border: '2px solid #111111',
+      overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#c084fc'
+    }}>
+      {/* Background Radiance */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.15) 0%, transparent 65%)'
+      }} />
+
+      {/* Outer Rotating Hexagon (Clockwise) */}
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ repeat: Infinity, duration: isWorking ? 5 : 10, ease: 'linear' }}
+        style={{
+          position: 'absolute',
+          width: '110px',
+          height: '110px',
+          border: '2px solid rgba(168, 85, 247, 0.45)',
+          clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)'
+        }}
+      />
+
+      {/* Inner Rotating Hexagon (Counter-Clockwise) */}
+      <motion.div
+        animate={{ rotate: -360 }}
+        transition={{ repeat: Infinity, duration: isWorking ? 4 : 8, ease: 'linear' }}
+        style={{
+          position: 'absolute',
+          width: '75px',
+          height: '75px',
+          border: '2px solid #ffcc00',
+          clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)'
+        }}
+      />
+
+      {/* Center Shield Lock Badge */}
+      <motion.div
+        animate={{ scale: [1, 1.1, 1] }}
+        transition={{ repeat: Infinity, duration: 1.8 }}
+        style={{
+          width: '38px',
+          height: '38px',
+          background: '#ffcc00',
+          border: '2px solid #111111',
+          boxShadow: '2px 2px 0px #111111',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#111111',
+          zIndex: 3
+        }}
+      >
+        <span style={{ fontSize: '1rem', fontWeight: 900 }}>🛡️</span>
+      </motion.div>
+
+      {/* Deflecting Anomaly Particles */}
+      {[
+        { startX: -140, startY: -20, delay: 0 },
+        { startX: 140, startY: 20, delay: 0.6 },
+        { startX: -120, startY: 35, delay: 1.2 }
+      ].map((p, idx) => (
+        <motion.div
+          key={idx}
+          animate={{
+            x: [p.startX, p.startX > 0 ? 55 : -55, p.startX > 0 ? 120 : -120],
+            y: [p.startY, p.startY > 0 ? 50 : -50, p.startY > 0 ? 80 : -80],
+            opacity: [0, 1, 0]
+          }}
+          transition={{ repeat: Infinity, duration: 2, delay: p.delay }}
+          style={{
+            position: 'absolute',
+            width: '6px',
+            height: '6px',
+            background: '#e02424',
+            border: '1px solid #ffffff'
+          }}
+        />
+      ))}
+
+      {/* HUD Readout */}
+      <div className="font-mono" style={{
+        position: 'absolute',
+        top: '6px',
+        left: '8px',
+        fontSize: '0.58rem',
+        fontWeight: 800,
+        color: '#c084fc',
+        display: 'flex',
+        gap: '6px'
+      }}>
+        <span>FORCEFIELD: ANTI-HALLUCINATION LOCK</span>
+        <span>•</span>
+        <span>SOUNDNESS: 99.8%</span>
+      </div>
+      <div className="font-mono" style={{
+        position: 'absolute',
+        bottom: '6px',
+        right: '8px',
+        fontSize: '0.58rem',
+        fontWeight: 800,
+        background: '#111111',
+        border: '1px solid #c084fc',
+        padding: '2px 6px',
+        color: '#ffcc00'
+      }}>
+        {isWorking ? 'AUDITING: SEMGREP RE-VERIFY' : 'SEAL VERIFIED // ZERO RESIDUALS'}
+      </div>
+    </div>
+  );
+}
+
+/* ── AGENT 04: PROOF (Container Pytest & Zero-Regression) VISUALIZER ── */
+function ProofOscilloscopeVisualizer({ isWorking }) {
+  return (
+    <div style={{
+      position: 'relative',
+      width: '100%',
+      height: '160px',
+      background: '#04100b',
+      border: '2px solid #111111',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      padding: '8px 12px',
+      color: '#4ade80'
+    }}>
+      {/* HUD Header */}
+      <div className="font-mono" style={{
+        fontSize: '0.58rem',
+        fontWeight: 800,
+        display: 'flex',
+        justifyContent: 'space-between',
+        zIndex: 2
+      }}>
+        <span>OSCILLOSCOPE: PYTEST HEARTBEAT</span>
+        <span style={{ color: '#ffcc00' }}>14/14 TESTS PASSED • 0 REGRESSION</span>
+      </div>
+
+      {/* Animated Oscilloscope Sine Wave SVG */}
+      <div style={{ position: 'relative', height: '65px', width: '100%', overflow: 'hidden' }}>
+        <svg viewBox="0 0 600 70" style={{ width: '100%', height: '100%' }}>
+          {/* Horizontal Reference Line */}
+          <line x1="0" y1="35" x2="600" y2="35" stroke="rgba(74, 222, 128, 0.2)" strokeWidth="1" strokeDasharray="4 4" />
+
+          {/* Dynamic Heartbeat Wave Path */}
+          <motion.path
+            d="M0,35 Q30,35 50,35 L70,35 L80,10 L90,55 L100,20 L110,45 L120,35 L200,35 L220,15 L230,50 L240,35 L350,35 L365,8 L375,60 L385,25 L395,35 L500,35 L515,12 L525,52 L535,35 L600,35"
+            fill="none"
+            stroke="#4ade80"
+            strokeWidth="2.5"
+            initial={{ pathOffset: 0 }}
+            animate={{ pathOffset: [0, 1] }}
+            transition={{ repeat: Infinity, duration: isWorking ? 1.4 : 2.8, ease: 'linear' }}
+          />
+        </svg>
+
+        {/* Oscilloscope Scan Glow Bar */}
+        <motion.div
+          animate={{ left: ['-10%', '110%'] }}
+          transition={{ repeat: Infinity, duration: isWorking ? 1.5 : 3, ease: 'linear' }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            width: '2px',
+            background: '#ffffff',
+            boxShadow: '0 0 10px #4ade80'
+          }}
+        />
+      </div>
+
+      {/* 14 Micro Test Pods Row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px', zIndex: 2 }}>
+        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+          {Array.from({ length: 14 }).map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ scale: 0.8 }}
+              animate={isWorking ? { scale: [0.8, 1.15, 0.8] } : { scale: 1 }}
+              transition={{ repeat: Infinity, duration: 1.2, delay: i * 0.08 }}
+              style={{
+                width: '16px',
+                height: '16px',
+                background: '#15803d',
+                border: '1px solid #ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.55rem',
+                color: '#ffffff',
+                fontWeight: 900
+              }}
+            >
+              ✓
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="font-mono" style={{
+          fontSize: '0.58rem',
+          fontWeight: 800,
+          background: '#111111',
+          border: '1px solid #4ade80',
+          padding: '2px 6px',
+          color: '#ffffff'
+        }}>
+          LATENCY: 4.2 SEC
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── AGENT 05: HERALD (Deployer & GitHub PR Transmitter) VISUALIZER ── */
+function HeraldTelemetryVisualizer({ isWorking }) {
+  return (
+    <div style={{
+      position: 'relative',
+      width: '100%',
+      height: '160px',
+      background: '#070f1a',
+      border: '2px solid #111111',
+      overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#60a5fa'
+    }}>
+      {/* Background Starfield Grid */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(96, 165, 250, 0.12) 0%, transparent 70%)'
+      }} />
+
+      {/* Concentric Broadcast Pulse Waves */}
+      {[0, 0.7, 1.4].map((delay, idx) => (
+        <motion.div
+          key={idx}
+          animate={{ scale: [0.3, 1.8], opacity: [0.9, 0] }}
+          transition={{ repeat: Infinity, duration: isWorking ? 1.6 : 2.8, delay, ease: 'easeOut' }}
+          style={{
+            position: 'absolute',
+            width: '100px',
+            height: '100px',
+            borderRadius: '50%',
+            border: '2px solid #3b82f6',
+            pointerEvents: 'none'
+          }}
+        />
+      ))}
+
+      {/* Orbiting Satellite Data Nodes */}
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ repeat: Infinity, duration: isWorking ? 3 : 6, ease: 'linear' }}
+        style={{
+          position: 'absolute',
+          width: '110px',
+          height: '110px',
+          pointerEvents: 'none'
+        }}
+      >
+        <div style={{
+          position: 'absolute',
+          top: '-4px',
+          left: '50%',
+          width: '8px',
+          height: '8px',
+          background: '#ffcc00',
+          border: '1.5px solid #111'
+        }} />
+        <div style={{
+          position: 'absolute',
+          bottom: '-4px',
+          left: '50%',
+          width: '8px',
+          height: '8px',
+          background: '#e02424',
+          border: '1.5px solid #111'
+        }} />
+      </motion.div>
+
+      {/* Center Transmitter Core / Rocket Dispatch Node */}
+      <motion.div
+        animate={{ scale: [1, 1.15, 1] }}
+        transition={{ repeat: Infinity, duration: 1.4 }}
+        style={{
+          width: '42px',
+          height: '42px',
+          background: '#1d4ed8',
+          border: '2px solid #ffffff',
+          boxShadow: '0 0 15px rgba(29, 78, 216, 0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#ffffff',
+          fontWeight: 900,
+          zIndex: 3
+        }}
+      >
+        <span style={{ fontSize: '1.2rem' }}>📡</span>
+      </motion.div>
+
+      {/* HUD Header & Status */}
+      <div className="font-mono" style={{
+        position: 'absolute',
+        top: '6px',
+        left: '8px',
+        fontSize: '0.58rem',
+        fontWeight: 800,
+        color: '#60a5fa',
+        display: 'flex',
+        gap: '6px'
+      }}>
+        <span>TRANSMITTER: GITHUB DISPATCH BEACON</span>
+        <span>•</span>
+        <span>BRANCH: aistudio</span>
+      </div>
+      <div className="font-mono" style={{
+        position: 'absolute',
+        bottom: '6px',
+        right: '8px',
+        fontSize: '0.58rem',
+        fontWeight: 800,
+        background: '#111111',
+        border: '1px solid #60a5fa',
+        padding: '2px 6px',
+        color: isWorking ? '#ffcc00' : '#ffffff'
+      }}>
+        {isWorking ? 'BROADCASTING: SHIP PR #42' : 'UPLINK READY // GITHUB HERALD'}
+      </div>
+    </div>
+  );
+}
+
+/* ── MINI ANIMATION FOR EACH SIDEBAR AGENT ── */
+function AgentMiniMotion({ agentIdx, isWorking }) {
+  if (agentIdx === 0) {
+    // Recon Radar
+    return (
+      <div style={{ position: 'relative', width: '20px', height: '20px', borderRadius: '50%', border: '1.5px solid #1d4ed8', background: '#0a101d', overflow: 'hidden', flexShrink: 0 }}>
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ repeat: Infinity, duration: isWorking ? 1.2 : 2.5, ease: 'linear' }}
+          style={{ width: '100%', height: '100%', background: 'conic-gradient(from 0deg, #38bdf8 0deg, transparent 90deg, transparent 360deg)' }}
+        />
+        <div style={{ position: 'absolute', inset: '6px', background: '#e02424', borderRadius: '50%' }} />
+      </div>
+    );
+  }
+  if (agentIdx === 1) {
+    // Forge Sparks
+    return (
+      <motion.div
+        animate={{ scale: isWorking ? [0.9, 1.25, 0.9] : [0.95, 1.05, 0.95] }}
+        transition={{ repeat: Infinity, duration: 0.8 }}
+        style={{ width: '20px', height: '20px', background: '#f59e0b', border: '1.5px solid #111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', flexShrink: 0 }}
+      >
+        ⚡
+      </motion.div>
+    );
+  }
+  if (agentIdx === 2) {
+    // Shield Hex
+    return (
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ repeat: Infinity, duration: isWorking ? 3 : 6, ease: 'linear' }}
+        style={{
+          width: '20px',
+          height: '20px',
+          background: '#a855f7',
+          clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#fff',
+          fontSize: '0.55rem',
+          fontWeight: 900,
+          flexShrink: 0
+        }}
+      >
+        🛡
+      </motion.div>
+    );
+  }
+  if (agentIdx === 3) {
+    // Proof Oscilloscope
+    return (
+      <div style={{ display: 'flex', gap: '1.5px', alignItems: 'flex-end', height: '14px', flexShrink: 0 }}>
+        <div className="eq-bar-1" style={{ width: '3px', background: '#15803d' }} />
+        <div className="eq-bar-2" style={{ width: '3px', background: '#15803d' }} />
+        <div className="eq-bar-3" style={{ width: '3px', background: '#15803d' }} />
+        <div className="eq-bar-4" style={{ width: '3px', background: '#15803d' }} />
+      </div>
+    );
+  }
+  // Herald Broadcast
+  return (
+    <div style={{ position: 'relative', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <motion.div
+        animate={{ scale: [0.4, 1.4], opacity: [1, 0] }}
+        transition={{ repeat: Infinity, duration: 1.5, ease: 'easeOut' }}
+        style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '1.5px solid #1d4ed8' }}
+      />
+      <div style={{ width: '8px', height: '8px', background: '#1d4ed8', border: '1px solid #111' }} />
+    </div>
+  );
+}
+
 export default function App() {
   const [presetIndex, setPresetIndex] = useState(0);
   const [repoUrl, setRepoUrl] = useState(DEMO_PRESETS[0].url);
@@ -1116,8 +1840,8 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  {isWorking && <EqualizerBars active={true} color="#e02424" />}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <AgentMiniMotion agentIdx={ag.idx} isWorking={isWorking || isSelected} />
                   <span className="font-mono" style={{
                     fontSize: '0.58rem',
                     fontWeight: 800,
@@ -2228,6 +2952,88 @@ export default function App() {
                     CVSS {vulnerabilities[activeVulnIndex]?.cvss_score}
                   </span>
                 </div>
+              </div>
+
+              {/* ── DEDICATED DISTINCT AI AGENT KINETIC VISUALIZER HUD ── */}
+              <div style={{
+                background: '#ffffff',
+                border: '2px solid #111111',
+                boxShadow: '4px 4px 0px #111111',
+                padding: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="font-mono" style={{
+                      background: '#111111',
+                      color: '#ffcc00',
+                      padding: '2px 8px',
+                      fontSize: '0.65rem',
+                      fontWeight: 900,
+                      border: '1.5px solid #111111'
+                    }}>
+                      AGENT 0{selectedAgentIdx + 1} LIVE VISUALIZER
+                    </span>
+                    <span className="font-display" style={{ fontSize: '0.82rem', fontWeight: 900 }}>
+                      {sidebarAgents[selectedAgentIdx]?.name} • KINETIC MATRIX
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      type="button"
+                      onClick={() => {
+                        addLog(sidebarAgents[selectedAgentIdx]?.key, `[Telemetry Pulse] Exercising Agent 0${selectedAgentIdx + 1} (${sidebarAgents[selectedAgentIdx]?.name}) animation routine.`);
+                      }}
+                      className="font-mono"
+                      style={{
+                        background: '#ffcc00',
+                        border: '1.5px solid #111111',
+                        padding: '3px 8px',
+                        fontSize: '0.62rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Zap size={11} />
+                      TEST-DRIVE ANIMATION
+                    </motion.button>
+                    <span className="font-mono" style={{
+                      background: status === 'running' ? '#e02424' : '#111111',
+                      color: '#ffffff',
+                      border: '1.5px solid #111111',
+                      padding: '3px 8px',
+                      fontSize: '0.62rem',
+                      fontWeight: 800
+                    }}>
+                      {status === 'running' ? 'EXECUTING PIPELINE' : 'SYNCHRONIZED'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Renders that specific agent's bespoke kinetic visualizer! */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={`agent-vis-${selectedAgentIdx}`}
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {selectedAgentIdx === 0 && <ReconRadarVisualizer isWorking={status === 'running' || selectedAgentIdx === 0} />}
+                    {selectedAgentIdx === 1 && <ForgeSynthesizerVisualizer isWorking={status === 'running' || selectedAgentIdx === 1} />}
+                    {selectedAgentIdx === 2 && <ShieldForcefieldVisualizer isWorking={status === 'running' || selectedAgentIdx === 2} />}
+                    {selectedAgentIdx === 3 && <ProofOscilloscopeVisualizer isWorking={status === 'running' || selectedAgentIdx === 3} />}
+                    {selectedAgentIdx === 4 && <HeraldTelemetryVisualizer isWorking={status === 'running' || selectedAgentIdx === 4} />}
+                  </motion.div>
+                </AnimatePresence>
               </div>
 
               {/* Chamber Deep-Dive Grid with AnimatePresence */}

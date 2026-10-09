@@ -237,6 +237,76 @@ h1, h2, h3, h4, .font-display {
   animation: corner-rotate 14s infinite steps(4);
 }
 
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes hex-spin-cw {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes hex-spin-ccw {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes spark-burst {
+  0% { transform: scale(0.6) translate(0, 0); opacity: 1; }
+  50% { transform: scale(1.2) translate(var(--spark-x, 8px), var(--spark-y, -8px)); opacity: 0.9; }
+  100% { transform: scale(0.2) translate(var(--spark-x, 14px), var(--spark-y, -14px)); opacity: 0; }
+}
+
+@keyframes wave-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes broadcast-expand {
+  0% { transform: scale(0.4); opacity: 0.9; }
+  50% { opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes orbit-drift {
+  0% { transform: rotate(0deg) translateX(24px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(24px) rotate(-360deg); }
+}
+
+@keyframes anvil-press {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(3px); }
+  50% { transform: translateY(-1px); }
+}
+
+.animate-radar-sweep {
+  transform-origin: center center;
+  animation: radar-sweep 3s linear infinite;
+}
+
+.animate-hex-cw {
+  transform-origin: center center;
+  animation: hex-spin-cw 8s linear infinite;
+}
+
+.animate-hex-ccw {
+  transform-origin: center center;
+  animation: hex-spin-ccw 6s linear infinite;
+}
+
+.animate-broadcast {
+  animation: broadcast-expand 2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+.animate-orbit {
+  animation: orbit-drift 4s linear infinite;
+}
+
+.animate-anvil {
+  animation: anvil-press 1.2s ease-in-out infinite;
+}
+
 .animate-geo-float {
   animation: geometric-float 4s ease-in-out infinite;
 }
