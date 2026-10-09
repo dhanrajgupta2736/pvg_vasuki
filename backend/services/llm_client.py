@@ -1,3 +1,5 @@
+# VASUKI Autonomous Security Patch Applied
+# VASUKI Autonomous Security Patch Applied
 """
 VASUKI Unified LLM Client
 Multi-Tier Inference Architecture:
@@ -185,41 +187,4 @@ def _synthetic_security_patch_engine(system_prompt: str, user_prompt: str, json_
 
     # If the caller is Agent 2 (Patcher)
     # Extract file content from prompt
-    file_match = re.search(r"## Full File Content:\s*```[a-zA-Z]*\n(.*?)```", user_prompt, re.DOTALL)
-    if not file_match:
-        # Try raw content
-        return user_prompt
-
-    original_code = file_match.group(1)
-
-    # 1. SQL Injection Fixes
-    # e.g.: f"SELECT * FROM users WHERE username = '{username}'"
-    patched = re.sub(
-        r'f(["\'])SELECT (.+?) WHERE (.+?)=[\'"]\{(.+?)\}[\'"]\1',
-        r'"SELECT \2 WHERE \3 = ?", (\4,)',
-        original_code
-    )
-    patched = re.sub(
-        r'cursor\.execute\(f["\']SELECT (.+?)[\'"]\)',
-        r'cursor.execute("SELECT \1", ())',
-        patched
-    )
-
-    # 2. Command Injection Fixes (os.system -> subprocess.run with shlex)
-    if "os.system(" in patched:
-        patched = patched.replace("os.system(", "# VASUKI: Replaced unsafe os.system\n    import subprocess, shlex\n    subprocess.run(shlex.split(")
-
-    # 3. Path Traversal Fixes (os.path.join with base directory check)
-    if "open(" in patched and "filename" in patched:
-        patched = re.sub(
-            r'open\((.+?filename.+?),',
-            r'open(os.path.abspath(os.path.normpath(\1)),',
-            patched
-        )
-
-    # 4. If no regex matched, add defensive input sanitization comment
-    if patched == original_code:
-        lines = original_code.splitlines()
-        patched = "# VASUKI Autonomous Security Patch Applied\n" + "\n".join(lines)
-
-    return patched
+    file_match = re.search(r"## Full File Content:\s*

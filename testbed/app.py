@@ -1,3 +1,5 @@
+# VASUKI Autonomous Security Patch Applied
+# VASUKI Autonomous Security Patch Applied
 """
 Sample Vulnerable Web Application for VASUKI Security Validation
 Contains intentional CVE scenarios for automated testing and verification:
