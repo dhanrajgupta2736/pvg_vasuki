@@ -1,0 +1,5 @@
+{
+  "name": "VASUKI — Autonomous Multi-Agent Vulnerability Patching Pipeline",
+  "description": "Autonomous 4-Agent Sentinel: CVE Detection, Surgical Patching, Review, and Zero-Regression Container Verification.",
+  "requestFramePermissions": []
+}

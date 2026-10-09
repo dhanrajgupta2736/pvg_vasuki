@@ -1,0 +1,386 @@
+/* ─────────────────────────────────────────────────────────────
+   VASUKI // BAUHAUS CONSTRUCTIVIST DESIGN SYSTEM & KINETIC MOTION
+   Aesthetic: Neo-Brutalist Bauhaus Geometry, Hard Offset Shadows,
+   Tactile Spring Physics, Constructivist Primary Palette
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  --bg-canvas: #f4efe6;
+  --bg-panel: #faf7f0;
+  --bg-card: #ffffff;
+  --bg-stone: #f0ece1;
+
+  --ink-black: #111111;
+  --ink-muted: #4a4842;
+  --ink-subtle: #6e6a61;
+
+  --bauhaus-yellow: #ffcc00;
+  --bauhaus-red: #e02424;
+  --bauhaus-blue: #1d4ed8;
+  --bauhaus-green: #15803d;
+
+  --border-strong: 2px solid #111111;
+  --border-thick: 3px solid #111111;
+  --border-thin: 1.5px solid #111111;
+
+  --shadow-sm: 2px 2px 0px #111111;
+  --shadow-md: 4px 4px 0px #111111;
+  --shadow-lg: 6px 6px 0px #111111;
+
+  --font-display: 'Outfit', sans-serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-canvas);
+  color: var(--ink-black);
+  font-family: var(--font-body);
+  line-height: 1.45;
+  overflow-x: hidden;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Brutalist Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-canvas);
+  border-left: 2px solid var(--ink-black);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ink-black);
+  transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bauhaus-red);
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.font-mono, .tabular-nums {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── KINETIC ANIMATIONS & BAUHAUS MOTIONS ── */
+@keyframes bauhaus-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.85;
+  }
+}
+
+@keyframes laser-sweep {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.8;
+  }
+  80% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(1000%);
+    opacity: 0;
+  }
+}
+
+@keyframes scanline-horizontal {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@keyframes corner-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(90deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+  75% {
+    transform: rotate(270deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes trace-flow {
+  0% {
+    stroke-dashoffset: 24;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes cursor-blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes eq-bounce-1 {
+  0%, 100% { height: 4px; }
+  50% { height: 16px; }
+}
+
+@keyframes eq-bounce-2 {
+  0%, 100% { height: 14px; }
+  50% { height: 6px; }
+}
+
+@keyframes eq-bounce-3 {
+  0%, 100% { height: 8px; }
+  50% { height: 18px; }
+}
+
+@keyframes eq-bounce-4 {
+  0%, 100% { height: 16px; }
+  50% { height: 5px; }
+}
+
+@keyframes beacon-ping {
+  0% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 rgba(224, 36, 36, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(224, 36, 36, 0);
+  }
+  100% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 rgba(224, 36, 36, 0);
+  }
+}
+
+@keyframes geometric-float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(2deg);
+  }
+}
+
+@keyframes grid-drift {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 24px 24px;
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 24s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+.animate-pulse-slow {
+  animation: bauhaus-pulse 2.2s infinite ease-in-out;
+}
+
+.animate-cursor-blink {
+  animation: cursor-blink 1s infinite;
+}
+
+.animate-beacon {
+  animation: beacon-ping 1.8s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+.animate-corner {
+  animation: corner-rotate 14s infinite steps(4);
+}
+
+.animate-geo-float {
+  animation: geometric-float 4s ease-in-out infinite;
+}
+
+.eq-bar-1 { animation: eq-bounce-1 0.75s ease-in-out infinite; }
+.eq-bar-2 { animation: eq-bounce-2 0.6s ease-in-out infinite; }
+.eq-bar-3 { animation: eq-bounce-3 0.85s ease-in-out infinite; }
+.eq-bar-4 { animation: eq-bounce-4 0.65s ease-in-out infinite; }
+
+/* Brutalist Surfaces & Buttons */
+.bauhaus-box {
+  background: var(--bg-card);
+  border: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.bauhaus-btn {
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.bauhaus-btn:hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0px #111111;
+}
+
+.bauhaus-btn:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px #111111;
+}
+
+.bauhaus-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.bauhaus-card-interactive {
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  position: relative;
+}
+
+.bauhaus-card-interactive:hover {
+  transform: translate(-3px, -3px);
+  box-shadow: 6px 6px 0px #111111;
+}
+
+.bauhaus-card-interactive:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0px #111111;
+}
+
+/* Code Diff Brutalist Styling */
+.diff-container {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: #141413;
+  color: #f4efe6;
+  border: var(--border-strong);
+  overflow: auto;
+  line-height: 1.55;
+  position: relative;
+}
+
+.diff-line-add {
+  background-color: rgba(34, 197, 94, 0.22);
+  color: #86efac;
+  padding: 2px 12px;
+  border-left: 3px solid #15803d;
+}
+
+.diff-line-del {
+  background-color: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  padding: 2px 12px;
+  border-left: 3px solid #e02424;
+}
+
+.diff-line-context {
+  color: #d6d3cd;
+  padding: 2px 12px;
+}
+
+/* Terminal Window */
+.terminal-window {
+  background: #141413;
+  color: #f4efe6;
+  border: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  overflow-y: auto;
+}
+
+/* Scanning Radar Bar overlay */
+.radar-scan-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, #e02424, transparent);
+  box-shadow: 0 0 10px #e02424;
+  animation: scanline-horizontal 3.5s linear infinite;
+  pointer-events: none;
+}
+
+@media (max-width: 1180px) {
+  .bauhaus-kpi-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+  .bauhaus-charts-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .bauhaus-matrix-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 860px) {
+  .bauhaus-layout-body {
+    flex-direction: column !important;
+  }
+  .bauhaus-sidebar {
+    width: 100% !important;
+    border-right: none !important;
+    border-bottom: var(--border-strong) !important;
+  }
+  .bauhaus-kpi-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .bauhaus-matrix-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

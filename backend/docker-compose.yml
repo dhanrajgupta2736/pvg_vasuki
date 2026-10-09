@@ -1,0 +1,97 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: vasuki_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vasuki_db
+      POSTGRES_USER: vasuki
+      POSTGRES_PASSWORD: vasuki_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vasuki"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: vasuki_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── FastAPI Backend ────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vasuki_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://vasuki:vasuki_pass@postgres:5432/vasuki_db
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    volumes:
+      - ./:/app
+      - /var/run/docker.sock:/var/run/docker.sock   # Docker-in-Docker for Agent 4
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Celery Worker (Agent task runner) ─────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vasuki_worker
+    restart: unless-stopped
+    command: celery -A core.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://vasuki:vasuki_pass@postgres:5432/vasuki_db
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    volumes:
+      - ./:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - redis
+      - postgres
+
+  # ── n8n Workflow Engine ────────────────────────────────
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: vasuki_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=vasuki_n8n_2026
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_METRICS=true
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  postgres_data:
+  n8n_data:
