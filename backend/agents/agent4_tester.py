@@ -193,7 +193,7 @@ async def _run_tests_subprocess_fallback(
     import subprocess
     
     loop = asyncio.get_event_loop()
-    cmd = f"cd {repo_path} && {project_info['test_cmd']}"
+    cmd = project_info['test_cmd']
     
     try:
         result = await loop.run_in_executor(

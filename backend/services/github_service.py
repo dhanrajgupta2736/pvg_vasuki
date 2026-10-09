@@ -42,13 +42,18 @@ async def push_branch(repo_path: str, branch_name: str, repo_url: str, scan_id: 
         def _push():
             repo = Repo(repo_path)
             # Add token to remote URL
-            authed_url = repo_url.replace(
-                "https://github.com/",
-                f"https://{settings.GITHUB_TOKEN}@github.com/"
-            )
+            authed_url = repo_url
+            if settings.GITHUB_TOKEN and "github.com/" in authed_url:
+                authed_url = authed_url.replace(
+                    "https://github.com/",
+                    f"https://{settings.GITHUB_TOKEN}@github.com/"
+                )
+            if not authed_url.endswith(".git"):
+                authed_url = f"{authed_url}.git"
+            
             origin = repo.remote("origin")
             origin.set_url(authed_url)
-            origin.push(branch_name)
+            repo.git.push("-u", "origin", f"{branch_name}:{branch_name}")
         
         await loop.run_in_executor(None, _push)
         await emit(scan_id, f"✅ Branch pushed: {branch_name}")

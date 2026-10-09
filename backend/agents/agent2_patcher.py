@@ -116,6 +116,9 @@ async def commit_patches(repo_path: str, vuln_summary: str, scan_id: str):
     """Stage and commit all patched files."""
     try:
         repo = Repo(repo_path)
+        with repo.config_writer() as git_config:
+            git_config.set_value("user", "name", "VASUKI Security Sentinel")
+            git_config.set_value("user", "email", "vasuki-bot@users.noreply.github.com")
         repo.git.add("-A")
         repo.git.commit(
             "-m",
@@ -138,13 +141,11 @@ async def patch_vulnerability(
     """Generate and apply a patch for a single vulnerability."""
     
     file_path = vuln.get("file", "")
-    if not file_path or not Path(file_path).exists():
-        # Try relative path
-        full_path = Path(repo_path) / file_path
-        if not full_path.exists():
-            await emit(scan_id, f"⚠️ File not found, skipping: {file_path}", level="warning")
-            return None
-        file_path = str(full_path)
+    target_path = Path(file_path) if Path(file_path).is_absolute() else (Path(repo_path) / file_path)
+    if not target_path.exists():
+        await emit(scan_id, f"⚠️ File not found in repo, skipping: {file_path}", level="warning")
+        return None
+    file_path = str(target_path)
     
     # Skip dependency files (handled separately)
     if vuln.get("category") == "dependency":
