@@ -1,0 +1,190 @@
+{
+  "name": "VASUKI Autonomous Security SOAR Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vasuki-security-trigger",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "id": "node-webhook-trigger",
+      "name": "GitHub Push / Audit Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "webhookId": "vasuki-soar-hook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/analysis/",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "repo_url",
+              "value": "={{ $json.body.repository.html_url || $json.body.repo_url || 'https://github.com/dhanrajgupta2736/pvg_vasuki' }}"
+            },
+            {
+              "name": "branch",
+              "value": "={{ $json.body.ref ? $json.body.ref.replace('refs/heads/', '') : 'main' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-trigger-vasuki",
+      "name": "Trigger VASUKI Pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "id": "node-wait",
+      "name": "Wait for Autonomous Agents",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://localhost:8000/api/analysis/' + $('Trigger VASUKI Pipeline').item.json.scan_id }}",
+        "options": {}
+      },
+      "id": "node-poll-status",
+      "name": "Fetch Scan & Patch Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-completed",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-check-completed",
+      "name": "Scan Completed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NOTIFICATION_WEBHOOK_URL || 'https://discord.com/api/webhooks/test' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": \"🛡️ **VASUKI Autonomous Sentinel Patch Report**\\n\\n**Repository:** \" + $json.repo_url + \"\\n**Vulnerabilities Detected:** \" + ($json.vulnerabilities ? $json.vulnerabilities.length : 0) + \"\\n**Confidence Score:** \" + ($json.confidence_score || 95) + \"%\\n**PR Generated:** \" + ($json.pr_url || 'N/A') + \"\\n\\n*Agents Executed: Seeker (Scanner) ➔ Spell Coder (Patcher) ➔ Reviewer (Shield) ➔ Deployer (Tester)*\"\n}",
+        "options": {}
+      },
+      "id": "node-dispatch-alert",
+      "name": "Dispatch SOAR Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "GitHub Push / Audit Webhook": {
+      "main": [
+        [
+          {
+            "node": "Trigger VASUKI Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger VASUKI Pipeline": {
+      "main": [
+        [
+          {
+            "node": "Wait for Autonomous Agents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Autonomous Agents": {
+      "main": [
+        [
+          {
+            "node": "Fetch Scan & Patch Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Scan & Patch Results": {
+      "main": [
+        [
+          {
+            "node": "Scan Completed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scan Completed?": {
+      "main": [
+        [
+          {
+            "node": "Dispatch SOAR Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

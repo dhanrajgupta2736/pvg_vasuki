@@ -74,7 +74,7 @@ async def run_builtin_sast_scan(repo_path: str, scan_id: str) -> list[dict]:
     patterns = [
         {
             "id": "vasuki-sqli-01",
-            "regex": r'(?i)(cursor\.execute|execute_query|query|session\.execute)\s*\(\s*(?:f["\'][^"\']*(?:SELECT|UPDATE|DELETE|INSERT)[^"\']*\{|["\'][^"\']*(?:SELECT|UPDATE|DELETE|INSERT)[^"\']*["\']\s*%)',
+            "regex": r'(?i)(?:query|sql)\s*=\s*f["\'].*(?:SELECT|UPDATE|DELETE|INSERT).*\{|(?:cursor\.execute|execute_query|query|session\.execute)\s*\(\s*(?:f["\'][^"\']*(?:SELECT|UPDATE|DELETE|INSERT)[^"\']*\{|["\'][^"\']*(?:SELECT|UPDATE|DELETE|INSERT)[^"\']*["\']\s*%)|f["\']SELECT\s+.*\{',
             "category": "sql-injection",
             "severity": "CRITICAL",
             "message": "SQL Injection vulnerability: Raw dynamic SQL query concatenated with untrusted input.",
@@ -110,7 +110,7 @@ async def run_builtin_sast_scan(repo_path: str, scan_id: str) -> list[dict]:
         },
         {
             "id": "vasuki-traversal-01",
-            "regex": r'(open\s*\(\s*f["\'][^"\']*\{[^"\']*(?:file|path|name)[^"\']*\}|send_file\s*\([^,)]*(?:file|path))',
+            "regex": r'(?i)(open\s*\(\s*(?:f["\'][^"\']*\{[^"\']*(?:file|path|name)[^"\']*\}|file_path|path|filename\b)|send_file\s*\([^,)]*(?:file|path))',
             "category": "path-traversal",
             "severity": "HIGH",
             "message": "Path Traversal vulnerability: File path constructed from untrusted variables without canonicalization.",
