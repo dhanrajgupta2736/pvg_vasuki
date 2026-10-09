@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  ExternalLink, Zap, Pause, RotateCcw, Sparkles, Check, Play,
-  Copy, Terminal, Flame, ShieldAlert, Cpu, ArrowRight, Eye
+  ExternalLink, Zap, Pause, RotateCcw, Sparkles, Check, Play, Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
