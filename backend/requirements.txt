@@ -21,3 +21,5 @@ asyncpg==0.29.0
 alembic==1.13.3
 psycopg2-binary==2.9.9
 python-multipart==0.0.9
+langchain==1.4.4
+langchain-core==1.6.9
