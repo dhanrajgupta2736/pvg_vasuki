@@ -5,6 +5,11 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { BauhausAutonomousAgentsHeaderBar } from './components/BauhausAgentStatusIndicator';
+import ReconPage from './pages/ReconPage';
+import ForgePage from './pages/ForgePage';
+import ShieldPage from './pages/ShieldPage';
+import ProofPage from './pages/ProofPage';
+import HeraldPage from './pages/HeraldPage';
 
 const API_BASE = '';
 const WS_BASE = typeof window !== 'undefined'
@@ -1612,18 +1617,22 @@ export default function App() {
           selectedIdx={selectedAgentIdx}
           onSelectAgent={(idx) => {
             setSelectedAgentIdx(idx);
+            const agentPages = ['recon', 'forge', 'shield', 'proof', 'herald'];
+            setActiveNav(agentPages[idx] || 'sanctorum');
             setActiveChamber(sidebarAgents[idx]?.chamber || 'all');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
 
         {/* Center Navigation Tabs with Spring Active Pill */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        <nav style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
           {[
-            { id: 'sanctorum', label: 'SANCTORUM', icon: '▣', chamber: 'all' },
-            { id: 'telemetry', label: 'TELEMETRY', icon: '◈', chamber: 'all' },
-            { id: 'grimoire', label: 'GRIMOIRE', icon: '▤', chamber: 'forge' },
-            { id: 'pensieve', label: 'PENSIEVE', icon: '◎', chamber: 'proof' },
-            { id: 'prophet', label: 'PROPHET LOG', icon: '⚐', chamber: 'all' }
+            { id: 'sanctorum', label: 'OVERVIEW', icon: '▣' },
+            { id: 'recon', label: '01 RECON', icon: '◎' },
+            { id: 'forge', label: '02 FORGE', icon: '⚡' },
+            { id: 'shield', label: '03 SHIELD', icon: '🛡' },
+            { id: 'proof', label: '04 PROOF', icon: '✓' },
+            { id: 'herald', label: '05 HERALD', icon: '⚐' }
           ].map((item) => {
             const isActive = activeNav === item.id;
             return (
@@ -1634,18 +1643,16 @@ export default function App() {
                 whileTap={{ y: 1 }}
                 onClick={() => {
                   setActiveNav(item.id);
-                  setActiveChamber(item.chamber);
-                  if ((item.id === 'grimoire' || item.id === 'pensieve') && chamberSectionRef.current) {
-                    chamberSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  } else if (item.id === 'prophet' && logContainerRef.current) {
-                    logContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  } else {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }
+                  if (item.id === 'recon') setSelectedAgentIdx(0);
+                  if (item.id === 'forge') setSelectedAgentIdx(1);
+                  if (item.id === 'shield') setSelectedAgentIdx(2);
+                  if (item.id === 'proof') setSelectedAgentIdx(3);
+                  if (item.id === 'herald') setSelectedAgentIdx(4);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 className="bauhaus-btn"
                 style={{
-                  padding: '6px 12px',
+                  padding: '6px 11px',
                   fontSize: '0.72rem',
                   background: isActive ? '#ffcc00' : 'transparent',
                   border: isActive ? '2px solid #111111' : '2px solid transparent',
@@ -1842,7 +1849,10 @@ export default function App() {
                 }}
                 onClick={() => {
                   setSelectedAgentIdx(ag.idx);
+                  const agentPages = ['recon', 'forge', 'shield', 'proof', 'herald'];
+                  setActiveNav(agentPages[ag.idx] || 'sanctorum');
                   setActiveChamber(ag.chamber);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 className="bauhaus-card-interactive"
                 style={{
@@ -2100,9 +2110,77 @@ export default function App() {
 
           {/* ── MAIN SCROLLABLE BAUHAUS WORKSPACE ── */}
           <main style={{ padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: '26px' }}>
-            {/* PR Shipped Notification Banner with Spring Entrance */}
-            <AnimatePresence>
-              {prUrl && (
+            <AnimatePresence mode="wait">
+              {activeNav === 'recon' && (
+                <ReconPage
+                  key="page-recon"
+                  status={status}
+                  isWorking={status === 'running'}
+                  vulnerabilities={vulnerabilities}
+                  activeVulnIndex={activeVulnIndex}
+                  setActiveVulnIndex={setActiveVulnIndex}
+                  onTriggerScan={handleStartScan}
+                  onBackToOverview={() => setActiveNav('sanctorum')}
+                />
+              )}
+
+              {activeNav === 'forge' && (
+                <ForgePage
+                  key="page-forge"
+                  status={status}
+                  isWorking={status === 'running'}
+                  patches={patches}
+                  activeVulnIndex={activeVulnIndex}
+                  onBackToOverview={() => setActiveNav('sanctorum')}
+                  onCopyDiff={handleCopyDiff}
+                  copiedDiff={copiedDiff}
+                />
+              )}
+
+              {activeNav === 'shield' && (
+                <ShieldPage
+                  key="page-shield"
+                  status={status}
+                  isWorking={status === 'running'}
+                  confidenceScore={confidenceScore}
+                  onBackToOverview={() => setActiveNav('sanctorum')}
+                />
+              )}
+
+              {activeNav === 'proof' && (
+                <ProofPage
+                  key="page-proof"
+                  status={status}
+                  isWorking={status === 'running'}
+                  testResults={testResults}
+                  onBackToOverview={() => setActiveNav('sanctorum')}
+                />
+              )}
+
+              {activeNav === 'herald' && (
+                <HeraldPage
+                  key="page-herald"
+                  status={status}
+                  isWorking={status === 'running'}
+                  prUrl={prUrl}
+                  prNumber={prNumber}
+                  repoUrl={repoUrl}
+                  onBackToOverview={() => setActiveNav('sanctorum')}
+                />
+              )}
+
+              {activeNav === 'sanctorum' && (
+                <motion.div
+                  key="page-sanctorum"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16 }}
+                  transition={{ duration: 0.25 }}
+                  style={{ display: 'flex', flexDirection: 'column', gap: '26px' }}
+                >
+                  {/* PR Shipped Notification Banner with Spring Entrance */}
+                  <AnimatePresence>
+                    {prUrl && (
                 <motion.div
                   initial={{ opacity: 0, y: -16, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -3419,6 +3497,9 @@ export default function App() {
                 </div>
               </motion.div>
             </section>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </main>
         </div>
       </div>
