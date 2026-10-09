@@ -1,0 +1,10 @@
+{
+  "name": "vasuki",
+  "private": true,
+  "version": "1.0.0",
+  "description": "VASUKI Autonomous Multi-Agent Vulnerability Patching Pipeline",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build"
+  }
+}
