@@ -129,14 +129,25 @@ async def review_patch(patch: dict, vuln: dict, scan_id: str, index: int) -> dic
     # Re-run semgrep on patched file
     semgrep_result = await re_run_semgrep_on_file(file_path)
     
-    prompt = REVIEWER_USER_TEMPLATE.format(
-        vuln_type=vuln.get("category", "unknown"),
-        cve_id=vuln.get("cve_id") or "N/A",
-        severity=vuln.get("severity", "UNKNOWN"),
-        message=vuln.get("message", ""),
-        diff=patch.get("diff", "No diff available")[:3000],
-        semgrep_result=semgrep_result,
-    )
+    try:
+        from services.langchain_service import get_langchain_review_prompt
+        prompt = get_langchain_review_prompt(
+            vuln_type=vuln.get("category", "unknown"),
+            cve_id=vuln.get("cve_id") or "N/A",
+            severity=vuln.get("severity", "UNKNOWN"),
+            message=vuln.get("message", ""),
+            diff=patch.get("diff", "No diff available")[:3000],
+            semgrep_result=semgrep_result,
+        )
+    except Exception:
+        prompt = REVIEWER_USER_TEMPLATE.format(
+            vuln_type=vuln.get("category", "unknown"),
+            cve_id=vuln.get("cve_id") or "N/A",
+            severity=vuln.get("severity", "UNKNOWN"),
+            message=vuln.get("message", ""),
+            diff=patch.get("diff", "No diff available")[:3000],
+            semgrep_result=semgrep_result,
+        )
     
     try:
         review = await _call_reviewer_llm(prompt)
