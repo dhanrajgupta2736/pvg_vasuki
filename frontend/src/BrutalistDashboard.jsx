@@ -243,6 +243,17 @@ export default function BrutalistDashboard() {
     if (!active) { setScanId(''); setError('') }
   }
 
+  const openHistory = () => {
+    setHistoryOpen(true)
+    const baseUrl = apiEndpoint || API
+    if (baseUrl) {
+      fetch(`${baseUrl}/api/analysis/`)
+        .then(r => r.ok ? r.json() : [])
+        .then(runs => { if (Array.isArray(runs) && runs.length) setHistory(runs) })
+        .catch(() => {})
+    }
+  }
+
   return <div className="brutal-app">
     <AnimatePresence>
       {showSplash && <VasukiLoader onFinish={() => setShowSplash(false)} />}
@@ -257,7 +268,7 @@ export default function BrutalistDashboard() {
       </button>
       <div className="header-right">
         <span className={`runtime ${health || scanId ? 'connected' : ''}`}><i />{health ? 'ORACLE BACKEND ONLINE' : 'AUTONOMOUS RUNNER READY'}</span>
-        <button className="brutal-button white small" onClick={() => setHistoryOpen(true)}>
+        <button className="brutal-button white small" onClick={openHistory}>
           <History size={16} />Run history
         </button>
       </div>
@@ -300,7 +311,7 @@ export default function BrutalistDashboard() {
       <footer className="brutal-footer"><b>VASUKI / BUILD WITH PROOF.</b><span>{health?.model || 'Oracle model'} · {health?.n8n_configured ? 'n8n orchestration' : 'Native orchestration'} · Human approves the merge.</span></footer>
     </main>
     <AnimatePresence>
-      {historyOpen && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setHistoryOpen(false)}><motion.div className="history-modal panel" initial={{ x: 100 }} animate={{ x: 0 }} onClick={e => e.stopPropagation()}><div className="section-label"><b>RUN HISTORY</b><button className="icon-button" aria-label="Close history" onClick={() => setHistoryOpen(false)}><X /></button></div>{history.map(job => <button className="history-entry" key={job.scan_id} onClick={() => selectRun(job)}><div><strong>{job.repo_url.split('/').slice(-2).join('/')}</strong><span>{job.scan_id.slice(0, 8)} · {job.branch || 'default branch'}</span></div><Badge status={job.status} /><ArrowRight size={18} /></button>)}</motion.div></motion.div>}
+      {historyOpen && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setHistoryOpen(false)}><motion.div className="history-modal panel" initial={{ x: 100 }} animate={{ x: 0 }} onClick={e => e.stopPropagation()}><div className="section-label"><b>RUN HISTORY ({history.length})</b><button className="icon-button" aria-label="Close history" onClick={() => setHistoryOpen(false)}><X /></button></div>{history.length ? history.map(job => <button className="history-entry" key={job.scan_id} onClick={() => selectRun(job)}><div><strong>{job.repo_url.split('/').slice(-2).join('/')}</strong><span>{job.scan_id.slice(0, 8)} · {job.branch || 'default branch'}</span></div><Badge status={job.status} /><ArrowRight size={18} /></button>) : <div style={{ padding: '36px 20px', textAlign: 'center', fontFamily: 'monospace', color: '#666' }}><LoaderCircle className="spin" style={{ margin: '0 auto 10px' }} size={24} /><div>Connecting to Oracle run history...</div></div>}</motion.div></motion.div>}
     </AnimatePresence>
   </div>
 }
