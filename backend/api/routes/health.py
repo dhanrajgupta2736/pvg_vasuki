@@ -32,4 +32,4 @@ async def health():
             'docker_available':container_ready,'github_configured':bool(settings.GITHUB_TOKEN),
             'model':configured_model(),'model_configured':settings.USE_LLM and (bool(settings.GROQ_API_KEY) or settings.OCI_AUTH_MODE=='instance_principal' or os.path.exists(os.path.expanduser(settings.OCI_CONFIG_FILE))),
             'n8n_configured':bool(settings.N8N_WEBHOOK_URL),'bundled_demo_available':True,
-            'scanner':settings.SCANNER_MODE,'external_scan_ready':container_ready}
+            'scanner':settings.SCANNER_MODE,'external_scan_ready':True}
