@@ -2,9 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "vasuki",
   "compatibility_date": "2024-09-23",
-  "pages_build_output_dir": "./frontend/dist",
   "assets": {
-    "directory": "./frontend/dist",
-    "binding": "ASSETS"
+    "directory": "./frontend/dist"
   }
 }
