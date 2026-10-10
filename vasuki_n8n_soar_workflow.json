@@ -1,190 +1,211 @@
 {
-  "name": "VASUKI Autonomous Security SOAR Pipeline",
+  "id": "vasukiPrototype01",
+  "name": "VASUKI \u00b7 Autonomous security patch pipeline",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 1800
+  },
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "vasuki-security-trigger",
-        "responseMode": "onReceived",
-        "responseData": "allEntries",
-        "options": {}
-      },
-      "id": "node-webhook-trigger",
-      "name": "GitHub Push / Audit Webhook",
+      "id": "repository-intake",
+      "name": "Repository intake",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        220,
-        300
+        0,
+        0
       ],
-      "webhookId": "vasuki-soar-hook"
-    },
-    {
       "parameters": {
-        "method": "POST",
-        "url": "http://localhost:8000/api/analysis/",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "repo_url",
-              "value": "={{ $json.body.repository.html_url || $json.body.repo_url || 'https://github.com/dhanrajgupta2736/pvg_vasuki' }}"
-            },
-            {
-              "name": "branch",
-              "value": "={{ $json.body.ref ? $json.body.ref.replace('refs/heads/', '') : 'main' }}"
-            }
-          ]
-        },
+        "httpMethod": "POST",
+        "path": "vasuki-security-trigger",
+        "responseMode": "responseNode",
         "options": {}
       },
-      "id": "node-trigger-vasuki",
-      "name": "Trigger VASUKI Pipeline",
+      "webhookId": "1c975faa-49e1-4614-a2bd-7926059419f3"
+    },
+    {
+      "id": "submit-to-vasuki",
+      "name": "Submit to VASUKI",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        460,
-        300
-      ]
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/analysis/",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
     },
     {
+      "id": "return-scan-id",
+      "name": "Return scan ID",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        480,
+        0
+      ],
       "parameters": {
-        "amount": 10,
-        "unit": "seconds"
-      },
-      "id": "node-wait",
-      "name": "Wait for Autonomous Agents",
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wait-for-agents",
+      "name": "Wait for agents",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        700,
-        300
-      ]
+        720,
+        0
+      ],
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      }
     },
     {
-      "parameters": {
-        "method": "GET",
-        "url": "={{ 'http://localhost:8000/api/analysis/' + $('Trigger VASUKI Pipeline').item.json.scan_id }}",
-        "options": {}
-      },
-      "id": "node-poll-status",
-      "name": "Fetch Scan & Patch Results",
+      "id": "read-real-results",
+      "name": "Read real results",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        940,
-        300
-      ]
+        960,
+        0
+      ],
+      "parameters": {
+        "url": "={{ 'http://api:8000/api/analysis/' + $('Submit to VASUKI').first().json.scan_id }}",
+        "options": {}
+      }
     },
     {
+      "id": "terminal-outcome",
+      "name": "Terminal outcome",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        0
+      ],
       "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict"
+            "typeValidation": "strict",
+            "version": 2
           },
           "conditions": [
             {
-              "id": "cond-completed",
-              "leftValue": "={{ $json.status }}",
-              "rightValue": "completed",
+              "id": "terminal-check",
+              "leftValue": "={{ ['completed', 'blocked', 'failed'].includes($json.status) }}",
+              "rightValue": "",
               "operator": {
-                "type": "string",
-                "operation": "equals"
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
               }
             }
           ],
           "combinator": "and"
         },
         "options": {}
-      },
-      "id": "node-check-completed",
-      "name": "Scan Completed?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        1180,
-        300
-      ]
+      }
     },
     {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.NOTIFICATION_WEBHOOK_URL || 'https://discord.com/api/webhooks/test' }}",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"content\": \"🛡️ **VASUKI Autonomous Sentinel Patch Report**\\n\\n**Repository:** \" + $json.repo_url + \"\\n**Vulnerabilities Detected:** \" + ($json.vulnerabilities ? $json.vulnerabilities.length : 0) + \"\\n**Confidence Score:** \" + ($json.confidence_score || 95) + \"%\\n**PR Generated:** \" + ($json.pr_url || 'N/A') + \"\\n\\n*Agents Executed: Seeker (Scanner) ➔ Spell Coder (Patcher) ➔ Reviewer (Shield) ➔ Deployer (Tester)*\"\n}",
-        "options": {}
-      },
-      "id": "node-dispatch-alert",
-      "name": "Dispatch SOAR Alert",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "retain-outcome-and-pr-evidence",
+      "name": "Retain outcome and PR evidence",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
       "position": [
-        1440,
-        220
-      ]
+        1460,
+        -80
+      ],
+      "parameters": {}
     }
   ],
   "connections": {
-    "GitHub Push / Audit Webhook": {
+    "Repository intake": {
       "main": [
         [
           {
-            "node": "Trigger VASUKI Pipeline",
+            "node": "Submit to VASUKI",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Trigger VASUKI Pipeline": {
+    "Submit to VASUKI": {
       "main": [
         [
           {
-            "node": "Wait for Autonomous Agents",
+            "node": "Return scan ID",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Wait for Autonomous Agents": {
+    "Return scan ID": {
       "main": [
         [
           {
-            "node": "Fetch Scan & Patch Results",
+            "node": "Wait for agents",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Fetch Scan & Patch Results": {
+    "Wait for agents": {
       "main": [
         [
           {
-            "node": "Scan Completed?",
+            "node": "Read real results",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Scan Completed?": {
+    "Read real results": {
       "main": [
         [
           {
-            "node": "Dispatch SOAR Alert",
+            "node": "Terminal outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Terminal outcome": {
+      "main": [
+        [
+          {
+            "node": "Retain outcome and PR evidence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait for agents",
             "type": "main",
             "index": 0
           }
         ]
       ]
     }
-  },
-  "settings": {
-    "executionOrder": "v1"
   }
 }

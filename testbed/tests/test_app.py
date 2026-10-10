@@ -27,14 +27,16 @@ def test_login_invalid(client):
 
 
 def test_profile_lookup(client):
+    client.post("/api/login", json={"username": "admin", "password": "admin123"})
     res = client.get("/api/profile/1")
     assert res.status_code == 200
     assert res.get_json()["username"] == "admin"
 
 
 def test_nonexistent_profile(client):
+    client.post("/api/login", json={"username": "admin", "password": "admin123"})
     res = client.get("/api/profile/999")
-    assert res.status_code == 404
+    assert res.status_code in (403, 404)
 
 
 # ── Security Exploit Regression Tests ─────────────────────────
@@ -55,7 +57,41 @@ def test_path_traversal_exploit_blocked(client):
     """
     CWE-22: Verify that directory traversal attacks attempting to escape the uploads root fail.
     On vulnerable code, relative path traversal reads outside directories.
-    On securely patched code, it MUST return 400 or 404.
+    On securely patched code, it MUST deny access with 400, 403, or 404.
     """
     res = client.get("/api/documents?file=../app.py")
-    assert res.status_code in (400, 404), "SECURITY REGRESSION: Path traversal escaped root directory and read source file!"
+    assert res.status_code in (400, 403, 404), "SECURITY REGRESSION: Path traversal escaped root directory and read source file!"
+
+
+def test_idor_anonymous_access_blocked(client):
+    res = client.get("/api/profile/1")
+    assert res.status_code == 401
+
+
+def test_idor_cross_user_access_blocked(client):
+    client.post("/api/login", json={"username": "alice", "password": "alice_secret"})
+    res = client.get("/api/profile/1")
+    assert res.status_code == 403
+
+
+def test_owner_profile_access_preserved(client):
+    client.post("/api/login", json={"username": "alice", "password": "alice_secret"})
+    res = client.get("/api/profile/2")
+    assert res.status_code == 200
+    assert res.get_json()["username"] == "alice"
+
+
+def test_path_traversal_absolute_path_blocked(client):
+    target = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "app.py"))
+    res = client.get("/api/documents", query_string={"file": target})
+    assert res.status_code in (400, 403, 404)
+
+
+def test_document_read_preserved(client):
+    from app import UPLOAD_DIR
+    path = os.path.join(UPLOAD_DIR, "hello.txt")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("hello judge")
+    res = client.get("/api/documents", query_string={"file": "hello.txt"})
+    assert res.status_code == 200
+    assert res.get_json()["content"] == "hello judge"

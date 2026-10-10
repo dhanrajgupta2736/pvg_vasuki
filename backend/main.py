@@ -27,9 +27,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from core.config import settings
 from core.database import init_db
+from core.database import AsyncSessionLocal
+from models.scan_job import ScanJob, ScanStatus
+from sqlalchemy import update
 from api.routes import analysis, health, reports, websocket_routes
 
 
@@ -37,6 +41,11 @@ from api.routes import analysis, health, reports, websocket_routes
 async def lifespan(app: FastAPI):
     # Startup
     await init_db()
+    async with AsyncSessionLocal() as db:
+        await db.execute(update(ScanJob).where(ScanJob.status.in_([
+            ScanStatus.PENDING, ScanStatus.SCANNING, ScanStatus.PATCHING, ScanStatus.REVIEWING, ScanStatus.TESTING, ScanStatus.DEPLOYING
+        ])).values(status=ScanStatus.FAILED, error_message="Server restarted during this run; retry the scan"))
+        await db.commit()
     yield
     # Shutdown (cleanup if needed)
 
@@ -63,11 +72,10 @@ app.include_router(reports.router,   prefix="/api/reports",   tags=["Reports"])
 app.include_router(websocket_routes.router, prefix="/ws",     tags=["WebSocket"])
 
 
-@app.get("/")
-async def root():
-    return {
-        "name": "VASUKI",
-        "tagline": "Autonomous Multi-Agent Vulnerability Patching Pipeline",
-        "version": "1.0.0",
-        "status": "operational",
-    }
+frontend_dist = Path(__file__).resolve().parents[1] / 'frontend' / 'dist'
+if frontend_dist.exists():
+    app.mount('/', StaticFiles(directory=frontend_dist, html=True), name='dashboard')
+else:
+    @app.get('/')
+    async def root():
+        return {'name': 'VASUKI', 'status': 'operational', 'dashboard': 'Build frontend to serve the UI'}

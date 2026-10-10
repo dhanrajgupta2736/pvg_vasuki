@@ -1,0 +1,44 @@
+diff --git a/app.py b/app.py
+index a7d91e3..d164880 100644
+--- a/app.py
++++ b/app.py
+@@ -36,9 +36,9 @@ def login():
+     password = data.get("password", "")
+ 
+     # VULNERABILITY 1: SQL Injection via string formatting
+-    query = f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'"
++    query = 'SELECT * FROM users WHERE username = ? AND password = ?'
+     cursor = db.cursor()
+-    cursor.execute(query)
++    cursor.execute(query, (username, password,))
+     user = cursor.fetchone()
+ 
+     if user:
+@@ -54,6 +54,14 @@ def get_document(filename=None):
+     # VULNERABILITY 2: Path Traversal
+     target = filename or request.args.get("file", "")
+     file_path = os.path.join(UPLOAD_DIR, target)
++
++    # Fix: Check if the resolved path is within the UPLOAD_DIR boundary
++    base_dir_realpath = os.path.realpath(UPLOAD_DIR)
++    requested_file_realpath = os.path.realpath(file_path)
++
++    if not os.path.commonpath([base_dir_realpath, requested_file_realpath]) == base_dir_realpath:
++        return jsonify({"error": "Access denied"}), 403
++
+     if target and os.path.exists(file_path):
+         with open(file_path, "r", encoding="utf-8") as f:
+             return jsonify({"content": f.read()}), 200
+@@ -63,6 +71,12 @@ def get_document(filename=None):
+ @app.route("/api/profile/<int:user_id>", methods=["GET"])
+ def get_profile(user_id):
+     # VULNERABILITY 3: Broken Access Control (IDOR)
++    if "user_id" not in session:
++        return jsonify({"error": "Unauthorized"}), 401
++
++    if session["user_id"] != user_id:
++        return jsonify({"error": "Forbidden"}), 403
++
+     cursor = db.cursor()
+     cursor.execute("SELECT id, username FROM users WHERE id = ?", (user_id,))
+     user = cursor.fetchone()

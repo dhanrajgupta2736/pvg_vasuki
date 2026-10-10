@@ -1,0 +1,407 @@
+{
+  "scan_id": "9fabcdc1-170c-402e-9c13-a3b9eefbd031",
+  "repo_url": "https://github.com/dhanrajgupta2736/vasuki-security-lab",
+  "source": "Actual Oracle run before line-ending preservation was added",
+  "final_status": "completed",
+  "repair_attempts": 1,
+  "regression_free": true,
+  "events": [
+    {
+      "agent": "tester",
+      "message": "Running baseline test suite",
+      "data": {
+        "label": "baseline"
+      },
+      "level": "info",
+      "event_id": "e69e3a9f-5fe7-40ba-8620-8bfecd3a43bd",
+      "timestamp": "2026-10-09T22:51:10.885635+00:00"
+    },
+    {
+      "agent": "tester",
+      "message": "baseline: 6 passed, 5 failed, 0 errors",
+      "data": {
+        "passed": 6,
+        "failed": 5,
+        "errors": 0,
+        "skipped": 0,
+        "total": 11,
+        "cases": [
+          {
+            "id": "tests.test_app::test_login_valid",
+            "name": "test_login_valid",
+            "status": "passed",
+            "duration": 0.012,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_login_invalid",
+            "name": "test_login_invalid",
+            "status": "passed",
+            "duration": 0.002,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_profile_lookup",
+            "name": "test_profile_lookup",
+            "status": "passed",
+            "duration": 0.003,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_nonexistent_profile",
+            "name": "test_nonexistent_profile",
+            "status": "passed",
+            "duration": 0.005,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_sqli_auth_bypass_blocked",
+            "name": "test_sqli_auth_bypass_blocked",
+            "status": "failed",
+            "duration": 0.002,
+            "security": true,
+            "message": "AssertionError: SECURITY REGRESSION: SQL injection authentication bypass succeeded!\nassert 200 == 401\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+          },
+          {
+            "id": "tests.test_app::test_path_traversal_exploit_blocked",
+            "name": "test_path_traversal_exploit_blocked",
+            "status": "failed",
+            "duration": 0.002,
+            "security": true,
+            "message": "AssertionError: SECURITY REGRESSION: Path traversal escaped root directory and read source file!\nassert 200 in (400, 403, 404)\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+          },
+          {
+            "id": "tests.test_app::test_idor_anonymous_access_blocked",
+            "name": "test_idor_anonymous_access_blocked",
+            "status": "failed",
+            "duration": 0.002,
+            "security": true,
+            "message": "assert 200 == 401\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+          },
+          {
+            "id": "tests.test_app::test_idor_cross_user_access_blocked",
+            "name": "test_idor_cross_user_access_blocked",
+            "status": "failed",
+            "duration": 0.003,
+            "security": true,
+            "message": "assert 200 == 403\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+          },
+          {
+            "id": "tests.test_app::test_owner_profile_access_preserved",
+            "name": "test_owner_profile_access_preserved",
+            "status": "passed",
+            "duration": 0.003,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_path_traversal_absolute_path_blocked",
+            "name": "test_path_traversal_absolute_path_blocked",
+            "status": "failed",
+            "duration": 0.002,
+            "security": true,
+            "message": "assert 200 in (400, 403, 404)\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+          },
+          {
+            "id": "tests.test_app::test_document_read_preserved",
+            "name": "test_document_read_preserved",
+            "status": "passed",
+            "duration": 0.002,
+            "security": false,
+            "message": ""
+          }
+        ],
+        "success": false,
+        "has_tests": true,
+        "label": "baseline",
+        "runner": "docker",
+        "exit_code": 1,
+        "output": "....FFFF.F.                                                              [100%]\n=================================== FAILURES ===================================\n________________________ test_sqli_auth_bypass_blocked _________________________\ntests/test_app.py:53: in test_sqli_auth_bypass_blocked\n    assert res.status_code == 401, \"SECURITY REGRESSION: SQL injection authentication bypass succeeded!\"\nE   AssertionError: SECURITY REGRESSION: SQL injection authentication bypass succeeded!\nE   assert 200 == 401\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n_____________________ test_path_traversal_exploit_blocked ______________________\ntests/test_app.py:63: in test_path_traversal_exploit_blocked\n    assert res.status_code in (400, 403, 404), \"SECURITY REGRESSION: Path traversal escaped root directory and read source file!\"\nE   AssertionError: SECURITY REGRESSION: Path traversal escaped root directory and read source file!\nE   assert 200 in (400, 403, 404)\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n______________________ test_idor_anonymous_access_blocked ______________________\ntests/test_app.py:68: in test_idor_anonymous_access_blocked\n    assert res.status_code == 401\nE   assert 200 == 401\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n_____________________ test_idor_cross_user_access_blocked ______________________\ntests/test_app.py:74: in test_idor_cross_user_access_blocked\n    assert res.status_code == 403\nE   assert 200 == 403\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n__________________ test_path_traversal_absolute_path_blocked ___________________\ntests/test_app.py:87: in test_path_traversal_absolute_path_blocked\n    assert res.status_code in (400, 403, 404)\nE   assert 200 in (400, 403, 404)\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n=========================== short test summary info ============================\nFAILED tests/test_app.py::test_sqli_auth_bypass_blocked - AssertionError: SEC...\nFAILED tests/test_app.py::test_path_traversal_exploit_blocked - AssertionErro...\nFAILED tests/test_app.py::test_idor_anonymous_access_blocked - assert 200 == 401\nFAILED tests/test_app.py::test_idor_cross_user_access_blocked - assert 200 ==...\nFAILED tests/test_app.py::test_path_traversal_absolute_path_blocked - assert ...\n5 failed, 6 passed in 1.30s\n",
+        "duration_seconds": 9.86
+      },
+      "level": "info",
+      "event_id": "e34e6226-c62c-4845-bd8e-806bbd1b4429",
+      "timestamp": "2026-10-09T22:51:20.750068+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "level": "info",
+      "message": "Re-scanning final patched source with the intake rules",
+      "data": {},
+      "event_id": "52cf15a8-959b-4152-8079-17e1b5d2c961",
+      "timestamp": "2026-10-09T22:51:44.120634+00:00"
+    },
+    {
+      "agent": "tester",
+      "message": "Running patched test suite",
+      "data": {
+        "label": "patched"
+      },
+      "level": "info",
+      "event_id": "310efefc-a5df-4807-b5be-dbf69b3c7865",
+      "timestamp": "2026-10-09T22:51:49.928216+00:00"
+    },
+    {
+      "agent": "tester",
+      "message": "patched: 10 passed, 1 failed, 0 errors",
+      "data": {
+        "passed": 10,
+        "failed": 1,
+        "errors": 0,
+        "skipped": 0,
+        "total": 11,
+        "cases": [
+          {
+            "id": "tests.test_app::test_login_valid",
+            "name": "test_login_valid",
+            "status": "passed",
+            "duration": 0.013,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_login_invalid",
+            "name": "test_login_invalid",
+            "status": "passed",
+            "duration": 0.002,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_profile_lookup",
+            "name": "test_profile_lookup",
+            "status": "passed",
+            "duration": 0.003,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_nonexistent_profile",
+            "name": "test_nonexistent_profile",
+            "status": "passed",
+            "duration": 0.047,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_sqli_auth_bypass_blocked",
+            "name": "test_sqli_auth_bypass_blocked",
+            "status": "passed",
+            "duration": 0.002,
+            "security": true,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_path_traversal_exploit_blocked",
+            "name": "test_path_traversal_exploit_blocked",
+            "status": "passed",
+            "duration": 0.002,
+            "security": true,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_idor_anonymous_access_blocked",
+            "name": "test_idor_anonymous_access_blocked",
+            "status": "failed",
+            "duration": 0.002,
+            "security": true,
+            "message": "assert 403 == 401\n +  where 403 = <WrapperTestResponse streamed [403 FORBIDDEN]>.status_code"
+          },
+          {
+            "id": "tests.test_app::test_idor_cross_user_access_blocked",
+            "name": "test_idor_cross_user_access_blocked",
+            "status": "passed",
+            "duration": 0.003,
+            "security": true,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_owner_profile_access_preserved",
+            "name": "test_owner_profile_access_preserved",
+            "status": "passed",
+            "duration": 0.002,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_path_traversal_absolute_path_blocked",
+            "name": "test_path_traversal_absolute_path_blocked",
+            "status": "passed",
+            "duration": 0.001,
+            "security": true,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_document_read_preserved",
+            "name": "test_document_read_preserved",
+            "status": "passed",
+            "duration": 0.002,
+            "security": false,
+            "message": ""
+          }
+        ],
+        "success": false,
+        "has_tests": true,
+        "label": "patched",
+        "runner": "docker",
+        "exit_code": 1,
+        "output": "......F....                                                              [100%]\n=================================== FAILURES ===================================\n______________________ test_idor_anonymous_access_blocked ______________________\ntests/test_app.py:68: in test_idor_anonymous_access_blocked\n    assert res.status_code == 401\nE   assert 403 == 401\nE    +  where 403 = <WrapperTestResponse streamed [403 FORBIDDEN]>.status_code\n=========================== short test summary info ============================\nFAILED tests/test_app.py::test_idor_anonymous_access_blocked - assert 403 == 401\n1 failed, 10 passed in 0.90s\n",
+        "duration_seconds": 7.39
+      },
+      "level": "info",
+      "event_id": "bf1ac430-f6a6-4416-a3ae-887eead5cb4a",
+      "timestamp": "2026-10-09T22:51:57.318056+00:00"
+    },
+    {
+      "agent": "orchestrator",
+      "message": "Test feedback returned to FORGE for one bounded repair attempt",
+      "data": {},
+      "level": "info",
+      "event_id": "0624531c-4688-427e-bbd8-c3faa8346512",
+      "timestamp": "2026-10-09T22:51:57.319504+00:00"
+    },
+    {
+      "agent": "patcher",
+      "message": "Repaired regression in app.py",
+      "data": {
+        "model_used": "oci/google.gemini-2.5-flash"
+      },
+      "level": "info",
+      "event_id": "1a11967c-f226-48c4-b853-607ff679b435",
+      "timestamp": "2026-10-09T22:52:06.612285+00:00"
+    },
+    {
+      "agent": "reviewer",
+      "level": "info",
+      "message": "Re-scanning final patched source with the intake rules",
+      "data": {},
+      "event_id": "799bcd19-afdc-4831-9aa3-81caa3e5cc43",
+      "timestamp": "2026-10-09T22:52:06.613152+00:00"
+    },
+    {
+      "agent": "tester",
+      "message": "Running patched-2 test suite",
+      "data": {
+        "label": "patched-2"
+      },
+      "level": "info",
+      "event_id": "af497832-80d9-433e-bb20-b975303049a9",
+      "timestamp": "2026-10-09T22:52:16.996416+00:00"
+    },
+    {
+      "agent": "tester",
+      "message": "patched-2: 11 passed, 0 failed, 0 errors",
+      "data": {
+        "passed": 11,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "total": 11,
+        "cases": [
+          {
+            "id": "tests.test_app::test_login_valid",
+            "name": "test_login_valid",
+            "status": "passed",
+            "duration": 0.012,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_login_invalid",
+            "name": "test_login_invalid",
+            "status": "passed",
+            "duration": 0.015,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_profile_lookup",
+            "name": "test_profile_lookup",
+            "status": "passed",
+            "duration": 0.003,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_nonexistent_profile",
+            "name": "test_nonexistent_profile",
+            "status": "passed",
+            "duration": 0.046,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_sqli_auth_bypass_blocked",
+            "name": "test_sqli_auth_bypass_blocked",
+            "status": "passed",
+            "duration": 0.002,
+            "security": true,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_path_traversal_exploit_blocked",
+            "name": "test_path_traversal_exploit_blocked",
+            "status": "passed",
+            "duration": 0.002,
+            "security": true,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_idor_anonymous_access_blocked",
+            "name": "test_idor_anonymous_access_blocked",
+            "status": "passed",
+            "duration": 0.001,
+            "security": true,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_idor_cross_user_access_blocked",
+            "name": "test_idor_cross_user_access_blocked",
+            "status": "passed",
+            "duration": 0.002,
+            "security": true,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_owner_profile_access_preserved",
+            "name": "test_owner_profile_access_preserved",
+            "status": "passed",
+            "duration": 0.003,
+            "security": false,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_path_traversal_absolute_path_blocked",
+            "name": "test_path_traversal_absolute_path_blocked",
+            "status": "passed",
+            "duration": 0.001,
+            "security": true,
+            "message": ""
+          },
+          {
+            "id": "tests.test_app::test_document_read_preserved",
+            "name": "test_document_read_preserved",
+            "status": "passed",
+            "duration": 0.002,
+            "security": false,
+            "message": ""
+          }
+        ],
+        "success": true,
+        "has_tests": true,
+        "label": "patched-2",
+        "runner": "docker",
+        "exit_code": 0,
+        "output": "...........                                                              [100%]\n11 passed in 0.62s\n",
+        "duration_seconds": 5.18
+      },
+      "level": "info",
+      "event_id": "1edcb6f4-2c99-415e-ac10-7b6fadccbb77",
+      "timestamp": "2026-10-09T22:52:22.178549+00:00"
+    }
+  ]
+}

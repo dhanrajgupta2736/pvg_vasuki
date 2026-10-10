@@ -1,253 +1,41 @@
-"""
-AGENT 3: SHIELD — The Reviewer
-Responsibilities:
-  - Re-run Semgrep on patched code to verify vulnerability is gone
-  - Use Groq (Llama 3.3 70B) to review each patch
-  - Compute confidence score (0-100) per patch and overall
-  - Provide structured review notes for each patch
-  - Output: review_notes dict, confidence_score float
-"""
-import asyncio
-import json
-import subprocess
-import tempfile
-import shutil
+"""SHIELD: verify final source against the same rules used at intake."""
+import ast
 from pathlib import Path
-
-from core.config import settings
 from core.redis_client import publish_event
-from services.llm_client import call_llm
+from agents.agent1_scanner import run_semgrep, run_dependency_scan
+from services.security_engine import source_files
 
-
-REVIEWER_SYSTEM_PROMPT = """You are VASUKI's Shield Agent — an elite security code reviewer.
-Your role is to review security patches and determine:
-1. Does the patch correctly fix the vulnerability?
-2. Does the patch introduce any new vulnerabilities?
-3. Could the patch break existing functionality?
-4. What is the confidence score (0-100) that this patch is safe to merge?
-
-You must respond in valid JSON format ONLY:
-{
-  "patch_fixes_vuln": true/false,
-  "introduces_new_vulns": true/false,
-  "new_vuln_description": "...",
-  "logic_break_risk": "none|low|medium|high",
-  "logic_break_explanation": "...",
-  "confidence_score": 0-100,
-  "reasoning": "...",
-  "recommendation": "approve|approve_with_caution|reject"
-}
-"""
-
-REVIEWER_USER_TEMPLATE = """
-Review this security patch:
-
-## Original Vulnerability:
-- **Type**: {vuln_type}
-- **CVE**: {cve_id}
-- **Severity**: {severity}
-- **Message**: {message}
-
-## Git Diff (the patch):
-```diff
-{diff}
-```
-
-## Semgrep Re-scan Result on Patched Code:
-{semgrep_result}
-
-Provide your review as JSON:
-"""
-
-
-async def emit(scan_id: str, message: str, data: dict = None, level: str = "info"):
-    await publish_event(scan_id, {
-        "agent": "reviewer",
-        "level": level,
-        "message": message,
-        "data": data or {},
-    })
-
-
-async def _call_reviewer_llm(prompt: str) -> dict:
-    """Call Groq (Llama 3.3 70B) for patch review, returns parsed JSON."""
-    raw = await call_llm(
-        system_prompt=REVIEWER_SYSTEM_PROMPT,
-        user_prompt=prompt,
-        max_tokens=1024,
-        temperature=0.2,
-        json_mode=True,
-    )
-    
-    # Extract JSON from response
-    try:
-        # Find JSON block
-        start = raw.find("{")
-        end   = raw.rfind("}") + 1
-        if start >= 0 and end > start:
-            return json.loads(raw[start:end])
-    except json.JSONDecodeError:
-        pass
-    
-    # Fallback — return a default review
-    return {
-        "patch_fixes_vuln": True,
-        "introduces_new_vulns": False,
-        "logic_break_risk": "low",
-        "confidence_score": 60,
-        "reasoning": "LLM parse error — manual review recommended",
-        "recommendation": "approve_with_caution",
-    }
-
-
-async def re_run_semgrep_on_file(file_path: str) -> str:
-    """Re-run Semgrep on the patched file to verify the fix."""
-    try:
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None,
-            lambda: subprocess.run(
-                ["semgrep", "scan", "--config", "auto", "--json", "--quiet", file_path],
-                capture_output=True, text=True, timeout=60
-            )
-        )
-        data = json.loads(result.stdout)
-        findings = data.get("results", [])
-        if not findings:
-            return "✅ No vulnerabilities found in patched file"
-        return f"⚠️ {len(findings)} remaining issues: " + ", ".join(r.get("check_id", "") for r in findings[:3])
-    except Exception as e:
-        return f"Semgrep re-scan unavailable: {e}"
-
-
-async def review_patch(patch: dict, vuln: dict, scan_id: str, index: int) -> dict:
-    """Review a single patch and produce a confidence score."""
-    
-    file_path = patch.get("file", "")
-    await emit(scan_id, f"🔎 [{index}] Reviewing patch for: {vuln.get('category', 'unknown')} in {Path(file_path).name}")
-    
-    # Re-run semgrep on patched file
-    semgrep_result = await re_run_semgrep_on_file(file_path)
-    
-    try:
-        from services.langchain_service import get_langchain_review_prompt
-        prompt = get_langchain_review_prompt(
-            vuln_type=vuln.get("category", "unknown"),
-            cve_id=vuln.get("cve_id") or "N/A",
-            severity=vuln.get("severity", "UNKNOWN"),
-            message=vuln.get("message", ""),
-            diff=patch.get("diff", "No diff available")[:3000],
-            semgrep_result=semgrep_result,
-        )
-    except Exception:
-        prompt = REVIEWER_USER_TEMPLATE.format(
-            vuln_type=vuln.get("category", "unknown"),
-            cve_id=vuln.get("cve_id") or "N/A",
-            severity=vuln.get("severity", "UNKNOWN"),
-            message=vuln.get("message", ""),
-            diff=patch.get("diff", "No diff available")[:3000],
-            semgrep_result=semgrep_result,
-        )
-    
-    try:
-        review = await _call_reviewer_llm(prompt)
-    except Exception as e:
-        await emit(scan_id, f"⚠️ LLM review failed: {e}", level="warning")
-        review = {
-            "patch_fixes_vuln": True,
-            "introduces_new_vulns": False,
-            "logic_break_risk": "unknown",
-            "confidence_score": 50,
-            "reasoning": f"Review unavailable: {str(e)}",
-            "recommendation": "approve_with_caution",
-        }
-    
-    review["patch_id"]    = patch.get("vulnerability_id")
-    review["file"]        = file_path
-    review["semgrep_result"] = semgrep_result
-    
-    score = review.get("confidence_score", 50)
-    rec   = review.get("recommendation", "approve_with_caution")
-    await emit(
-        scan_id,
-        f"{'✅' if score >= 80 else '⚠️'} Patch review: {score}/100 confidence — {rec}",
-        {"confidence": score, "recommendation": rec}
-    )
-    
-    return review
-
-
-def _calculate_overall_confidence(reviews: list[dict], patches: list[dict]) -> float:
-    """Calculate overall pipeline confidence score."""
-    if not reviews:
-        return 0.0
-    
-    scores = [r.get("confidence_score", 50) for r in reviews]
-    
-    # Weight by severity — patches for CRITICAL/HIGH vulns count more
-    base_score = sum(scores) / len(scores)
-    
-    # Penalty for any patch that introduces new vulns
-    new_vuln_penalty = sum(5 for r in reviews if r.get("introduces_new_vulns"))
-    
-    # Bonus for high coverage
-    applied_ratio = sum(1 for p in patches if p.get("applied")) / max(len(patches), 1)
-    coverage_bonus = applied_ratio * 10
-    
-    final = min(100.0, max(0.0, base_score - new_vuln_penalty + coverage_bonus))
-    return round(final, 1)
-
-
-# ── Main Agent Entry Point ──────────────────────────────────────
-
-async def run_reviewer(
-    patches: list[dict],
-    vulnerabilities: list[dict],
-    scan_id: str,
-) -> dict:
-    """
-    Full reviewer agent execution.
-    Returns: { review_notes, confidence_score }
-    """
-    if not patches:
-        await emit(scan_id, "ℹ️ No patches to review")
-        return {"review_notes": {}, "confidence_score": 0.0}
-    
-    await emit(scan_id, f"🛡️ Starting review of {len(patches)} patches")
-    
-    # Build vuln lookup by ID
-    vuln_map = {v.get("id"): v for v in vulnerabilities}
-    
+async def run_reviewer(patches,vulnerabilities,scan_id,repo_path,project_root=None,bundled=False):
+    project_root = Path(project_root or repo_path).resolve()
+    await publish_event(scan_id,{'agent':'reviewer','level':'info','message':'Re-scanning final patched source with the intake rules','data':{}})
+    syntax_errors = []
+    for path in source_files(project_root):
+        try:
+            ast.parse(path.read_text(encoding='utf-8'))
+        except SyntaxError as exc:
+            syntax_errors.append(f'{path.relative_to(project_root)}:{exc.lineno}')
+    remaining = await run_semgrep(str(project_root),scan_id)
+    if not bundled:
+        remaining.extend(await run_dependency_scan(str(project_root),scan_id))
+    prefix = project_root.relative_to(Path(repo_path).resolve())
+    for finding in remaining:
+        finding['file'] = (prefix/finding['file']).as_posix()
+    before_keys = {(v['file'],v['category'],v.get('rule_id')) for v in vulnerabilities}
+    after_keys = {(v['file'],v['category'],v.get('rule_id')) for v in remaining}
+    new_findings = [v for v in remaining if (v['file'],v['category'],v.get('rule_id')) not in before_keys]
     reviews = []
-    for i, patch in enumerate(patches):
-        if not patch.get("applied"):
-            continue
-        vuln = vuln_map.get(patch.get("vulnerability_id"), {})
-        review = await review_patch(patch, vuln, scan_id, i + 1)
-        reviews.append(review)
-        await asyncio.sleep(1)
-    
-    overall_confidence = _calculate_overall_confidence(reviews, patches)
-    
-    # Summary
-    approved     = sum(1 for r in reviews if r.get("recommendation") == "approve")
-    with_caution = sum(1 for r in reviews if r.get("recommendation") == "approve_with_caution")
-    rejected     = sum(1 for r in reviews if r.get("recommendation") == "reject")
-    
-    review_notes = {
-        "individual_reviews": reviews,
-        "summary": {
-            "approved": approved,
-            "approve_with_caution": with_caution,
-            "rejected": rejected,
-            "total_reviewed": len(reviews),
-        },
-    }
-    
-    await emit(
-        scan_id,
-        f"🎯 Review complete: {overall_confidence}/100 overall confidence",
-        {"confidence": overall_confidence, "approved": approved, "rejected": rejected},
-    )
-    
-    return {"review_notes": review_notes, "confidence_score": overall_confidence}
+    for patch in patches:
+        unresolved = any(v['file']==patch['file'] and v['category']==patch['category'] for v in remaining)
+        approved = not unresolved and not syntax_errors and not new_findings
+        reviews.append({'patch_id':patch['vulnerability_id'],'file':patch['file'],'patch_fixes_vuln':not unresolved,
+            'introduces_new_vulns':bool(new_findings),'confidence_score':100 if approved else 0,
+            'recommendation':'approve' if approved else 'reject','logic_break_risk':'pending-test-verification',
+            'reasoning':'Target rule no longer matches; syntax passes. Runtime proof is required.' if approved else 'Target remains or source validation failed.',
+            'semgrep_result':'Re-scan passed' if approved else 'Re-scan failed'})
+    notes = {'individual_reviews':reviews,'summary':{'approved':sum(r['recommendation']=='approve' for r in reviews),
+        'rejected':sum(r['recommendation']=='reject' for r in reviews),'total_reviewed':len(reviews)},
+        'remaining_findings':remaining,'new_findings':new_findings,'syntax_errors':syntax_errors,
+        'all_findings_resolved':not remaining and not syntax_errors}
+    # Percentage of original rule instances cleared, explicitly not a merge probability.
+    score = round(100*len(before_keys-after_keys)/max(len(before_keys),1),1)
+    return {'review_notes':notes,'confidence_score':score}

@@ -1,126 +1,94 @@
-"""
-FastAPI Routes — Analysis endpoints
-POST /api/analysis/       → Start a new scan
-GET  /api/analysis/{id}   → Get scan status
-GET  /api/analysis/       → List all scans
-"""
-import asyncio
-import uuid
-from typing import Optional
-
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
-from pydantic import BaseModel, HttpUrl
+"""Scan submission, a real bundled demo, and durable scan state."""
+from fastapi import APIRouter,HTTPException,BackgroundTasks,Depends,Query
+from pydantic import BaseModel,Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from core.database import get_db
-from models.scan_job import ScanJob, ScanStatus
+from models.scan_job import ScanJob,ScanStatus
 from services.pipeline_orchestrator import run_full_pipeline
+from services.repository import parse_github_url,repo_file,scan_directory
+import json
+from datetime import datetime, timezone
+import httpx
+from core.config import settings
 
-router = APIRouter()
 
+router=APIRouter()
 
 class AnalysisRequest(BaseModel):
-    repo_url: str
-    branch: Optional[str] = "main"
+    repo_url:str
+    branch:str|None=None
+    project_path:str=Field(default='',max_length=200)
+    publish_pr:bool=True
 
-
-class AnalysisResponse(BaseModel):
-    scan_id: str
-    status: str
-    message: str
-
-
-@router.post("/", response_model=AnalysisResponse)
-async def start_analysis(
-    req: AnalysisRequest,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-):
-    """Start a new VASUKI vulnerability scan pipeline."""
-    
-    # Validate it's a GitHub URL
-    if "github.com" not in req.repo_url:
-        raise HTTPException(400, "Only GitHub repositories are supported")
-    
-    # Create scan job
-    job = ScanJob(
-        repo_url=req.repo_url,
-        branch=req.branch,
-        status=ScanStatus.PENDING,
-    )
+async def _submit(db,tasks,url,branch=None,project_path='',bundled=False,publish_pr=True):
+    job=ScanJob(repo_url=url,branch=branch or '',status=ScanStatus.PENDING,
+                test_results={'project_path':project_path,'publish_pr':publish_pr})
     db.add(job)
     await db.commit()
     await db.refresh(job)
-    
-    scan_id = str(job.id)
-    
-    # Run pipeline in background
-    branch_name = req.branch or "main"
-    background_tasks.add_task(_run_pipeline_task, scan_id, req.repo_url, branch_name)
-    
-    return AnalysisResponse(
-        scan_id=scan_id,
-        status="pending",
-        message=f"VASUKI pipeline started for {req.repo_url} on branch {branch_name}",
-    )
+    tasks.add_task(run_full_pipeline,str(job.id),url,branch,project_path,bundled,publish_pr)
+    return {'scan_id':str(job.id),'status':'pending','message':'Pipeline queued'}
 
+@router.post('/')
+async def start_analysis(req:AnalysisRequest,background_tasks:BackgroundTasks,db:AsyncSession=Depends(get_db)):
+    try:
+        owner,name=parse_github_url(req.repo_url)
+        repo_file('/repository',req.project_path or '.')
+        if req.branch and (req.branch.startswith('-') or any(c in req.branch for c in ' \n\r~^:?*[\\')):
+            raise ValueError('Invalid branch name')
+    except ValueError as exc:
+        raise HTTPException(400,str(exc)) from None
+    return await _submit(db,background_tasks,f'https://github.com/{owner}/{name}',req.branch,req.project_path,False,req.publish_pr)
 
-async def _run_pipeline_task(scan_id: str, repo_url: str, branch: str = "main"):
-    """Background task wrapper for the pipeline."""
-    await run_full_pipeline(scan_id, repo_url, branch)
+@router.post('/demo')
+async def run_bundled_demo(background_tasks:BackgroundTasks,db:AsyncSession=Depends(get_db)):
+    return await _submit(db,background_tasks,'bundled://flask-security-lab',bundled=True,publish_pr=False)
 
+@router.post('/orchestrated')
+async def start_orchestrated(req:AnalysisRequest):
+    if not settings.N8N_WEBHOOK_URL:
+        raise HTTPException(503,'n8n workflow is not configured')
+    try:
+        parse_github_url(req.repo_url)
+        async with httpx.AsyncClient(timeout=30) as client:
+            response=await client.post(settings.N8N_WEBHOOK_URL,json=req.model_dump(),
+                headers={'X-Vasuki-Secret':settings.N8N_WEBHOOK_SECRET})
+        if response.status_code!=200:
+            raise HTTPException(502,'n8n webhook did not accept the run; check the published workflow')
+        result=response.json()
+        if not isinstance(result,dict) or not result.get('scan_id'):
+            raise HTTPException(502,'n8n returned no scan ID')
+        return result
+    except httpx.HTTPError:
+        raise HTTPException(502,'Cannot reach the n8n workflow') from None
+    except ValueError as exc:
+        raise HTTPException(400,str(exc)) from None
 
-@router.get("/{scan_id}")
-async def get_scan_status(scan_id: str, db: AsyncSession = Depends(get_db)):
-    """Get full scan job status and results."""
-    result = await db.execute(select(ScanJob).where(ScanJob.id == scan_id))
-    job = result.scalar_one_or_none()
-    
+@router.get('/')
+async def list_scans(db:AsyncSession=Depends(get_db),limit:int=Query(default=20,ge=1,le=100)):
+    result=await db.execute(select(ScanJob).order_by(ScanJob.created_at.desc()).limit(limit))
+    return [{'scan_id':j.id,'repo_url':j.repo_url,'branch':j.branch,'project_path':(j.test_results or {}).get('project_path',''),
+             'status':j.status,'confidence_score':j.confidence_score,
+             'vuln_count':len(j.vulnerabilities or []),'pr_url':j.pr_url,'created_at':j.created_at.isoformat()} for j in result.scalars()]
+
+@router.get('/{scan_id}')
+async def get_scan_status(scan_id:str,db:AsyncSession=Depends(get_db)):
+    job=await db.get(ScanJob,scan_id)
     if not job:
-        raise HTTPException(404, f"Scan {scan_id} not found")
-    
-    return {
-        "scan_id":          str(job.id),
-        "repo_url":         job.repo_url,
-        "status":           job.status,
-        "agents": {
-            "scanner":  job.agent_scanner,
-            "patcher":  job.agent_patcher,
-            "reviewer": job.agent_reviewer,
-            "tester":   job.agent_tester,
-        },
-        "vulnerabilities":   job.vulnerabilities,
-        "patches":           job.patches,
-        "review_notes":      job.review_notes,
-        "test_results":      job.test_results,
-        "confidence_score":  job.confidence_score,
-        "blast_radius":      job.blast_radius,
-        "pr_url":            job.pr_url,
-        "pr_number":         job.pr_number,
-        "error_message":     job.error_message,
-        "created_at":        job.created_at.isoformat() if job.created_at else None,
-        "completed_at":      job.completed_at.isoformat() if job.completed_at else None,
-    }
+        raise HTTPException(404,'Scan not found')
+    return {'scan_id':job.id,'repo_url':job.repo_url,'branch':job.branch,'status':job.status,
+        'server_time':datetime.now(timezone.utc).isoformat(),
+        'agents':{**{a:getattr(job,'agent_'+a) for a in ['scanner','patcher','reviewer','tester']},
+                  'deployer':(job.test_results or {}).get('delivery',{}).get('status','idle')},
+        'vulnerabilities':job.vulnerabilities,'patches':job.patches,'review_notes':job.review_notes,
+        'test_results':job.test_results,'confidence_score':job.confidence_score,'blast_radius':job.blast_radius,
+        'pr_url':job.pr_url,'pr_number':job.pr_number,'error_message':job.error_message,
+        'created_at':job.created_at.isoformat(),'completed_at':job.completed_at.isoformat() if job.completed_at else None}
 
-
-@router.get("/")
-async def list_scans(db: AsyncSession = Depends(get_db), limit: int = 20):
-    """List recent scans."""
-    result = await db.execute(
-        select(ScanJob).order_by(ScanJob.created_at.desc()).limit(limit)
-    )
-    jobs = result.scalars().all()
-    
-    return [
-        {
-            "scan_id":         str(j.id),
-            "repo_url":        j.repo_url,
-            "status":          j.status,
-            "confidence_score": j.confidence_score,
-            "vuln_count":      len(j.vulnerabilities or []),
-            "pr_url":          j.pr_url,
-            "created_at":      j.created_at.isoformat() if j.created_at else None,
-        }
-        for j in jobs
-    ]
+@router.get('/{scan_id}/events')
+async def scan_events(scan_id:str,db:AsyncSession=Depends(get_db)):
+    if not await db.get(ScanJob,scan_id):
+        raise HTTPException(404,'Scan not found')
+    path=scan_directory(scan_id)/'events.jsonl'
+    return [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines()] if path.exists() else []

@@ -1,81 +1,49 @@
-version: "3.9"
-
+name: vasuki-prototype
 services:
-  # ── PostgreSQL ─────────────────────────────────────────
-  postgres:
-    image: postgres:16-alpine
-    container_name: vasuki_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: vasuki_db
-      POSTGRES_USER: vasuki
-      POSTGRES_PASSWORD: vasuki_pass
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vasuki"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ── Redis ──────────────────────────────────────────────
-  redis:
-    image: redis:7-alpine
-    container_name: vasuki_redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-
-  # ── FastAPI Backend ────────────────────────────────────
   api:
     build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: vasuki_api
+      context: ..
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
+    env_file: .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://vasuki:vasuki_pass@postgres:5432/vasuki_db
-      - REDIS_URL=redis://redis:6379/0
-    env_file:
-      - .env
+      DATABASE_URL: sqlite+aiosqlite:////data/vasuki.db
+      ARTIFACTS_DIR: /data/artifacts
+      OCI_AUTH_MODE: instance_principal
+      N8N_WEBHOOK_URL: http://n8n:5678/webhook/vasuki-security-trigger
+      REDIS_URL: redis://redis:6379/0
     volumes:
-      - ./:/app
-      - /var/run/docker.sock:/var/run/docker.sock   # Docker-in-Docker for Agent 4
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  # ── Pipeline Runner (FastAPI Background Tasks + Redis Pub/Sub) ──
-  # Note: Async pipeline tasks run directly inside the FastAPI application container
-  # utilizing Redis pub/sub for real-time WebSocket state distribution.
-
-  # ── n8n Workflow Engine ────────────────────────────────
+      - api_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    mem_limit: 450m
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "16mb", "--maxmemory-policy", "allkeys-lru"]
+    mem_limit: 32m
   n8n:
-    image: n8nio/n8n:latest
-    container_name: vasuki_n8n
+    image: docker.n8n.io/n8nio/n8n:stable
     restart: unless-stopped
     ports:
-      - "5678:5678"
+      - "127.0.0.1:5678:5678"
     environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=vasuki_n8n_2026
-      - WEBHOOK_URL=http://localhost:5678/
-      - N8N_METRICS=true
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      N8N_EDITOR_BASE_URL: http://localhost:5678
+      GENERIC_TIMEZONE: Asia/Kolkata
+      TZ: Asia/Kolkata
+      NODE_OPTIONS: --max-old-space-size=256
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_RUNNERS_ENABLED: "false"
     volumes:
       - n8n_data:/home/node/.n8n
-
+      - ../vasuki_n8n_soar_workflow.json:/tmp/vasuki-workflow.json:ro
+    mem_limit: 384m
 volumes:
-  postgres_data:
+  api_data:
   n8n_data:

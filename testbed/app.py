@@ -1,15 +1,17 @@
 """
 Sample Vulnerable Web Application for VASUKI Security Validation
-Contains intentional CVE scenarios for automated testing and verification:
-  - CVE-1: SQL Injection in authentication
-  - CVE-2: Path Traversal in document retrieval
-  - CVE-3: Broken Access Control (IDOR)
+Contains intentional CWE scenarios for automated testing and verification:
+  - CWE-89: SQL Injection in authentication
+  - CWE-22: Path Traversal in document retrieval
+  - CWE-639: Broken Access Control (IDOR)
 """
 import os
 import sqlite3
-from flask import Flask, request, jsonify
+import secrets
+from flask import Flask, request, jsonify, session
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SESSION_SECRET") or secrets.token_hex(32)
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -40,6 +42,8 @@ def login():
     user = cursor.fetchone()
 
     if user:
+        session["user_id"] = user[0]
+        session["tenant_id"] = user[3]
         return jsonify({"status": "success", "user_id": user[0], "username": user[1]}), 200
     return jsonify({"status": "failed", "message": "Invalid credentials"}), 401
 

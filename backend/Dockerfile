@@ -1,22 +1,20 @@
 FROM python:3.11-slim
 
-WORKDIR /app
+WORKDIR /app/backend
 
 # System deps
-RUN apt-get update && apt-get install -y \
-    git curl wget build-essential \
-    docker.io \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install semgrep
-RUN pip install --no-cache-dir semgrep
-
 # Python deps
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend /app/backend
+COPY testbed /app/testbed
+COPY frontend/dist /app/frontend/dist
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

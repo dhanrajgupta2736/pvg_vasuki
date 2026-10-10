@@ -1,0 +1,50 @@
+name: vasuki-prototype
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file: ../backend/.env
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/vasuki.db
+      ARTIFACTS_DIR: /data/artifacts
+      OCI_AUTH_MODE: instance_principal
+      N8N_WEBHOOK_URL: http://n8n:5678/webhook/vasuki-security-trigger
+      REDIS_URL: redis://redis:6379/0
+      DOCKER_SANDBOX_IMAGE: vasuki-python-lab:1
+    volumes:
+      - api_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    mem_limit: 450m
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "16mb", "--maxmemory-policy", "allkeys-lru"]
+    mem_limit: 32m
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:stable
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      N8N_EDITOR_BASE_URL: http://localhost:5678
+      GENERIC_TIMEZONE: Asia/Kolkata
+      TZ: Asia/Kolkata
+      NODE_OPTIONS: --max-old-space-size=256
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_RUNNERS_ENABLED: "false"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ../vasuki_n8n_soar_workflow.json:/tmp/vasuki-workflow.json:ro
+    mem_limit: 384m
+volumes:
+  api_data:
+  n8n_data:

@@ -57,3 +57,5 @@ tmp/
 vasuki_*.db
 vasuki_db.sqlite*
 backend/vasuki.db
+backend/artifacts/
+.run/

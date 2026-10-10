@@ -1,0 +1,95 @@
+[
+  {
+    "run": 1,
+    "scan_id": "48c09541-7241-4071-a1af-a950314b5e69",
+    "status": "completed",
+    "seconds": 74.7,
+    "backend_seconds": 68.49,
+    "before_passed": 6,
+    "after_passed": 11,
+    "test_total": 11,
+    "runner": "docker",
+    "regression_free": true,
+    "score": 100,
+    "models": [
+      "native-ast-repair",
+      "oci/google.gemini-2.5-flash"
+    ],
+    "pr_url": "",
+    "error": ""
+  },
+  {
+    "run": 2,
+    "scan_id": "1187f96f-a9aa-4dee-87ad-66c1f4e141c7",
+    "status": "completed",
+    "seconds": 101.1,
+    "backend_seconds": 96.46,
+    "before_passed": 6,
+    "after_passed": 11,
+    "test_total": 11,
+    "runner": "docker",
+    "regression_free": true,
+    "score": 100,
+    "models": [
+      "oci/google.gemini-2.5-flash"
+    ],
+    "pr_url": "",
+    "error": ""
+  },
+  {
+    "run": 3,
+    "scan_id": "f13facef-ab2d-4015-9f07-40fb6515ebce",
+    "status": "completed",
+    "seconds": 102.0,
+    "backend_seconds": 93.93,
+    "before_passed": 6,
+    "after_passed": 11,
+    "test_total": 11,
+    "runner": "docker",
+    "regression_free": true,
+    "score": 100,
+    "models": [
+      "native-ast-repair",
+      "oci/google.gemini-2.5-flash"
+    ],
+    "pr_url": "",
+    "error": ""
+  },
+  {
+    "run": 4,
+    "scan_id": "73510776-82ae-4288-86ab-01e98c49fe4b",
+    "status": "completed",
+    "seconds": 86.9,
+    "backend_seconds": 71.18,
+    "before_passed": 6,
+    "after_passed": 11,
+    "test_total": 11,
+    "runner": "docker",
+    "regression_free": true,
+    "score": 100,
+    "models": [
+      "native-ast-repair",
+      "oci/google.gemini-2.5-flash"
+    ],
+    "pr_url": "",
+    "error": ""
+  },
+  {
+    "run": 5,
+    "scan_id": "696e71e4-a375-4bed-89a2-46a591268349",
+    "status": "completed",
+    "seconds": 48.5,
+    "backend_seconds": 45.97,
+    "before_passed": 6,
+    "after_passed": 11,
+    "test_total": 11,
+    "runner": "docker",
+    "regression_free": true,
+    "score": 100,
+    "models": [
+      "oci/google.gemini-2.5-flash"
+    ],
+    "pr_url": "https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/4",
+    "error": ""
+  }
+]

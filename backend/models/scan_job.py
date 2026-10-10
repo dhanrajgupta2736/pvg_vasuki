@@ -16,8 +16,10 @@ class ScanStatus(str, PyEnum):
     PATCHING  = "patching"
     REVIEWING = "reviewing"
     TESTING   = "testing"
+    DEPLOYING = "deploying"
     COMPLETED = "completed"
     FAILED    = "failed"
+    BLOCKED   = "blocked"
 
 
 class AgentStatus(str, PyEnum):
