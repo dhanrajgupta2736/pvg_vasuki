@@ -8,7 +8,7 @@ import ReviewPanel from './components/ReviewPanel.jsx'
 import { DEMO_REPORT, DEMO_EVENTS } from './data/demoRun.js'
 import './brutalist.css'
 
-const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+const API = (import.meta.env.VITE_API_URL || 'https://api.dhanrajgupta.xyz').replace(/\/$/, '')
 const DEMO = 'https://github.com/dhanrajgupta2736/vasuki-security-lab'
 const terminal = new Set(['completed', 'failed', 'blocked'])
 const crew = [

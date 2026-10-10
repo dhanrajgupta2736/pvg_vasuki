@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowDownToLine, ArrowRight, Check, ChevronDown, ExternalLink, GitBranch, GitFork as Github, History, LoaderCircle, Play, Radar, ShieldCheck, SquareTerminal, TestTubes, Wrench, X, Zap } from 'lucide-react'
 
-const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+const API = (import.meta.env.VITE_API_URL || 'https://api.dhanrajgupta.xyz').replace(/\/$/, '')
 const DEMO = 'https://github.com/dhanrajgupta2736/vasuki-security-lab'
 const finished = new Set(['completed', 'failed', 'blocked'])
 const stages = [
