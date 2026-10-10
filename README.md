@@ -1,187 +1,155 @@
-# VASUKI — Autonomous security patch pipeline
+<div align="center">
+  <img src="https://raw.githubusercontent.com/dhanrajgupta2736/pvg_vasuki/main/frontend/public/vasuki-logo.jpg" alt="VASUKI logo" width="104" />
+  <h1>VASUKI</h1>
+  <p><strong>Find the flaw. Patch it. Prove it.</strong></p>
+  <p>An agent-assisted security patch pipeline that checks a fix against the original tests before it opens a draft pull request.</p>
+  <p>
+    <a href="https://vasuki.dhanrajgupta.xyz">Dashboard preview</a> ·
+    <a href="https://github.com/dhanrajgupta2736/vasuki-security-lab">Demo repository</a> ·
+    <a href="https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/7">Example verified PR</a>
+  </p>
+  <p><a href="https://raw.githubusercontent.com/dhanrajgupta2736/pvg_vasuki/main/docs/demo/walkthrough.mp4">Watch the 15-second walkthrough (MP4)</a></p>
+</div>
 
-Hack-a-Night 2026 · Team Soul Celestia
+<p align="center">
+  <a href="https://raw.githubusercontent.com/dhanrajgupta2736/pvg_vasuki/main/docs/demo/walkthrough.gif"><img src="https://raw.githubusercontent.com/dhanrajgupta2736/pvg_vasuki/main/docs/demo/walkthrough.gif" alt="VASUKI dashboard walkthrough: scan, patch, review, test, and draft PR" width="900" /></a>
+</p>
 
-Submit a GitHub repository and watch five specialized agents identify security
-flaws, generate targeted changes, review the final source, and execute unchanged
-tests. A passing run commits the verified source and opens a draft GitHub PR
-with baseline and patched test evidence. A failed gate blocks publication.
+VASUKI takes a GitHub repository through baseline testing, supported vulnerability analysis, a bounded patch-and-review loop, and isolated post-patch verification. A successful run creates a branch and a **draft** pull request with its rationale and evidence. A human reviews and merges it.
 
-**Verified example:** [automatically generated draft PR](https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/6).
-The latest Inspect-to-PR browser run completed in **67.73 seconds** on Oracle.
-Five consecutive Oracle rehearsals passed all seven build, test, integrity and
-review checks: **11/11 tests passing**, five exploit checks blocked, and no
-regressions. Mean backend execution was **75.21 seconds** (range
-45.97–96.46 seconds); mean laptop-observed time was **82.64 seconds**.
-[The measured timings](docs/demo/rehearsals.json) retain both clocks, including
-transient SSH polling interruptions. Each observed run finished under two minutes.
+> **Hosted dashboard:** [vasuki.dhanrajgupta.xyz](https://vasuki.dhanrajgupta.xyz) is currently a UI preview. The Oracle deployment and local tunnel workflow are described in the [runbook](docs/presentation-runbook.md).
 
-[Presentation runbook](docs/presentation-runbook.md) · [offline recorded evidence](docs/demo/offline.html)
+## At a glance
 
-Current brutalist UI, connected to the actual Oracle pipeline:
+| | |
+|---|---|
+| **Workflow** | RECON → PROOF baseline → FORGE → SHIELD → PROOF → HERALD |
+| **Verified runs** | Three end-to-end repository runs opened draft PRs and passed all 9 recorded workflow checks. |
+| **Repair loop** | Review or test feedback can return to FORGE for another bounded patch cycle. |
+| **Delivery** | A separate patch branch and draft PR; the pipeline never merges to the base branch. |
+| **Current focus** | Python repositories with pytest; selected Flask/SQLite source patterns and Python dependency advisories. |
 
-![VASUKI repository intake](docs/demo/brutalist-landing.png)
+## Screenshots
 
-Earlier recorded UI walkthrough of a completed run and its draft PR:
+<table>
+  <tr>
+    <td align="center"><strong>Repository intake</strong><br><a href="https://raw.githubusercontent.com/dhanrajgupta2736/pvg_vasuki/main/docs/demo/brutalist-landing.png"><img src="https://raw.githubusercontent.com/dhanrajgupta2736/pvg_vasuki/main/docs/demo/brutalist-landing.png" alt="Repository intake screen" width="420" /></a></td>
+    <td align="center"><strong>Agent run</strong><br><a href="https://raw.githubusercontent.com/dhanrajgupta2736/pvg_vasuki/main/docs/demo/brutalist-live.png"><img src="https://raw.githubusercontent.com/dhanrajgupta2736/pvg_vasuki/main/docs/demo/brutalist-live.png" alt="Live multi-agent timeline" width="420" /></a></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Verified result</strong><br><a href="https://raw.githubusercontent.com/dhanrajgupta2736/pvg_vasuki/main/docs/demo/brutalist-verified.png"><img src="https://raw.githubusercontent.com/dhanrajgupta2736/pvg_vasuki/main/docs/demo/brutalist-verified.png" alt="Completed verification view" width="420" /></a></td>
+    <td align="center"><strong>Review evidence</strong><br><a href="https://raw.githubusercontent.com/dhanrajgupta2736/pvg_vasuki/main/docs/demo/review-checks.jpg"><img src="https://raw.githubusercontent.com/dhanrajgupta2736/pvg_vasuki/main/docs/demo/review-checks.jpg" alt="Patch review checks" width="420" /></a></td>
+  </tr>
+</table>
 
-![Recorded VASUKI dashboard and PR walkthrough](docs/demo/walkthrough.gif)
+The animated GIF above is a quick tour; the MP4 link opens the same walkthrough for playback or download. More evidence: [before/after tests](docs/demo/test-comparison.jpg), [verified diff](docs/demo/verified-diff.jpg), and [draft PR view](docs/demo/draft-pr.jpg).
 
-## Presentation demo
-
-Use [vasuki-security-lab](https://github.com/dhanrajgupta2736/vasuki-security-lab).
-Leave branch and project directory blank; keep draft PR publication enabled.
-
-The deliberately vulnerable baseline has three real flaws: SQL injection
-(CWE-89), directory traversal (CWE-22), and missing profile authorization
-(CWE-639). Its eleven tests include six normal behavior checks and five exploit
-checks. The expected result is **6 passing / 5 failing before, 11 passing after**.
-The pipeline edits implementation files, preserving the test suite.
-
-1. Open the brutalist dashboard. Enter the demo repository URL and click Inspect.
-2. Watch RECON → PROOF baseline → FORGE → SHIELD → PROOF. Agent panels
-   pop on actual handoffs; failed review or tests return feedback to FORGE.
-3. Inspect the three findings and the generated source diff.
-4. Open Tests to show named before/after results, the Docker runner, and no
-   missing or regressed tests.
-5. HERALD commits the verified branch and opens a real draft PR. Inspect
-   its commit and executed evidence; a person approves the merge.
-
-Every run has a different scan ID and patch branch. Keep `main` vulnerable for
-repeat demos; merging a draft PR would change the baseline.
-
-The bundled security lab API (`POST /api/analysis/demo`) runs the same fixture without GitHub publication.
-It is a useful fallback when internet or the container runner is unavailable.
-Its runner is accurately labelled `trusted-bundled-process`; GitHub submissions
-always require Docker and never execute tests on the backend host.
-
-## Architecture and verification
+## What a run does
 
 ```mermaid
 flowchart LR
-    UI[Animated React dashboard] --> N[n8n intake, optional]
-    UI --> API[FastAPI orchestrator]
-    N --> API
-    API --> R[RECON: source and dependency analysis]
-    R --> B[Docker baseline tests]
-    B --> F[FORGE: OCI model patches]
-    F --> S[SHIELD: final source review]
-    S --> P[PROOF: Docker patched tests]
-    P --> G{All gates pass?}
-    G -->|yes| PR[HERALD: verified commit and draft GitHub PR]
-    G -->|no| X[Block publication and retain evidence]
-    G -->|review or test feedback, budget remaining| F
+    UI[React dashboard] --> API[FastAPI orchestrator]
+    API --> R[RECON<br/>Analyze source and dependencies]
+    R --> B[PROOF<br/>Run baseline build and tests]
+    B --> F[FORGE<br/>Create a bounded patch]
+    F --> S[SHIELD<br/>Review changed code]
+    S --> P[PROOF<br/>Build and run tests again]
+    P --> G{All required checks pass?}
+    G -->|No: feedback, rounds left| F
+    G -->|No: missing evidence or limit| X[Block delivery]
+    G -->|Yes| H[HERALD<br/>Commit branch and open draft PR]
 ```
 
-- Source analysis uses auditable Python AST rules for supported SQLite/Flask
-  patterns. Optional `SCANNER_MODE=semgrep` also uses installed Semgrep rules.
-- Dependency advisories come from `pip-audit`; source findings have CWE classes
-  and never receive invented CVE identifiers.
-- FORGE uses real OCI Generative AI inference (the current prototype uses
-  `google.gemini-2.5-flash` in Mumbai). Model failures can fall back to a narrow
-  AST repair engine; the event stream records which engine actually generated
-  each patch. No fabricated model approval or test results are returned.
-- SHIELD repeats source rules, checks syntax, and rejects unresolved or new
-  findings. Rule clearance is not a statistical probability of security.
-- PROOF builds both snapshots (a wheel for packaged Python projects, syntax
-  compilation for standalone applications) and records JUnit cases. Existing passing tests must
-  remain passing, no baseline tests may disappear, and the patched suite must
-  exit successfully. Missing suites, failed installs, missing evidence, and
-  unavailable Docker block publication. Fingerprints protect the original test
-  files, fixtures and collection configuration across patching, installation,
-  building and test execution. Duplicate test IDs and newly skipped tests block.
-  The validation score equally weights seven recorded checks; it is not a
-  probability that a repository is secure.
-- Reviewer findings and failed test output return feedback to FORGE. Review and
-  complete test execution repeat until both pass, up to `MAX_REPAIR_ROUNDS`
-  (six cycles by default). An exhausted budget blocks publication. Supported
-  AST repairs are labelled explicitly when model feedback remains unverifiable.
-- Docker snapshots exclude credentials and Git metadata. Tests run as UID 1000
-  with limited CPU/memory, dropped capabilities, no host mounts, and networking
-  disconnected before repository installation, building and testing. The
-  connected preparation phase accepts package requirements and binary wheels;
-  direct dependency URLs, local paths and installer options are rejected.
-- Commits occur only after validation. Push credentials are transient Git
-  headers; tokens are never stored in repository remote URLs. Repositories
-  without write access are forked before creating a draft PR.
-- JSON evidence, diffs, PR rationale, test reports, and events are retained in
-  `backend/artifacts/<scan-id>` or the Oracle API data volume.
+- **RECON** identifies supported source patterns and Python dependency advisories. Findings include a CWE or advisory where evidence supports one; the scanner does not invent CVE identifiers.
+- **PROOF** captures the original build and test results before any patch. It compares named test cases afterward, checks test inputs remain unchanged, and blocks missing or regressed evidence.
+- **FORGE** proposes a targeted patch using the configured model, with a narrow AST repair path for selected patterns. The event timeline records which engine produced each change.
+- **SHIELD** re-checks source rules and syntax, then asks an independent LangChain-backed model review to assess the actual diff and changed files. A failed review or test sends concrete feedback back to FORGE, within the configured repair limit.
+- **HERALD** publishes only after the required checks pass. It commits to a separate branch and opens a draft PR with the change rationale and run evidence.
 
-## Run on the laptop
+The validation score summarizes recorded checks; it is **not** a probability that a repository is secure. Automated results are evidence for human review, not a merge decision.
 
-Python 3.11+, Git and Node.js are required. Configure `backend/.env` from
-`backend/.env.example`, providing your GitHub token and OCI configuration.
+### Runner boundaries
+
+Repository builds and tests run in Docker snapshots as a non-root user, with resource limits, dropped capabilities, no host mounts, and networking disabled during repository installation, build, and test execution. Dependency wheels are prepared before the isolated phase. The API host controls Docker and is therefore trusted; this prototype is not a hardened multi-tenant service.
+
+## Recent verification evidence
+
+The included deliberately vulnerable repositories provide repeatable examples. These Oracle-backed runs opened real draft PRs:
+
+| Scenario | Before | After | Repair cycles | Evidence |
+|---|---:|---:|---:|---|
+| Flask app: SQL injection, traversal, and profile authorization | 6/11 passing | 11/11 passing | 2 | [Draft PR #7](https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/7) |
+| Standalone SQLite utility | 7/10 passing | 10/10 passing | 1 | [Draft PR #1](https://github.com/dhanrajgupta2736/vasuki-ledger-lab/pull/1) |
+| Packaged app on an older release branch | 7/13 passing | 13/13 passing | 1 | [Draft PR #8](https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/8) |
+
+Each run passed all 9 recorded core workflow checks. This is measured evidence for these scenarios, not a claim of broad language or vulnerability coverage. See the [rehearsal notes](docs/presentation-runbook.md).
+
+## Tech stack
+
+| Area | Tools |
+|---|---|
+| Dashboard | React 19, Vite, Framer Motion, Lucide React, Recharts |
+| API and orchestration | Python 3.11+, FastAPI, Pydantic, SQLAlchemy; SQLite by default, optional Redis/PostgreSQL configuration |
+| Agent/model flow | LangChain Core prompt, runnable, and output-parser primitives; OCI Generative AI (Gemini 2.5 Flash by default) or optional Groq inference |
+| Security analysis | Native Python AST rules for selected Flask/SQLite patterns, `pip-audit` for Python dependencies, optional Semgrep mode |
+| Repository and verification | GitPython, GitHub API, Docker build/test snapshots, pytest/JUnit evidence |
+| Deployment and integrations | Oracle Cloud Infrastructure VM and Generative AI, optional n8n intake workflow, Cloudflare Workers for dashboard delivery and API routing |
+
+LangChain provides structured model invocation and review in the agent flow. The FastAPI orchestrator owns the workflow, deterministic checks, retry budget, and publication gates; n8n is an optional intake/status integration rather than the patching engine.
+
+## Run locally
+
+### Requirements
+
+- Python 3.11 or newer
+- Node.js and npm
+- Git
+- Docker Engine for real repository build/test runs
+- GitHub credentials with access to the target repository; an LLM provider configuration for model-assisted review and patching
+
+### Start the dashboard and API
+
+From the repository root in PowerShell:
 
 ```powershell
 python -m pip install -r backend/requirements.txt
-npm --prefix frontend install
+Copy-Item backend/.env.example backend/.env
+# Edit backend/.env and add the credentials/configuration you intend to use.
 npm run build
-cd backend
-python -m uvicorn main:app --host 127.0.0.1 --port 8000
+python -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000
 ```
 
-Open `http://127.0.0.1:8000`. The backend serves the built UI on the same origin.
-For UI development, run `npm run dev` from the repository root and use port 5173.
-Its Vite proxy targets local backend port 8000. The teammate's original dashboard
-remains in `frontend/src/App.jsx`; the live presentation view is
-`frontend/src/LiveDashboard.jsx`.
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000). The API health endpoint is `/api/health`; interactive API docs are at `/docs`.
 
-Without local Docker, use the bundled lab or the Oracle presentation tunnel.
+Configure either OCI Generative AI (the default provider, using OCI config or instance-principal auth) or `GROQ_API_KEY`. Set `GITHUB_TOKEN` for private repositories or PR publication. Keep credentials in `backend/.env`; do not commit that file. The full variable list and safe defaults are in [`backend/.env.example`](backend/.env.example).
 
-## Oracle deployment
+For frontend development, run `npm run dev` from the root and open the Vite URL it prints. The Vite dev server proxies API requests to local port 8000.
 
-The prototype uses the existing Ubuntu VM. The dashboard, orchestrator, model
-access, n8n, and Docker test runner run on Oracle. A laptop SSH tunnel exposes
-only the dashboard and n8n locally; cloud ports remain bound to loopback.
+### Oracle deployment and demo fallback
 
-`ops/oracle_bastion.py` establishes a laptop-IP-restricted managed SSH session,
-using the OCI CLI/SDK configuration and an ignored local key. Sessions expire
-after three hours; create a fresh session before the presentation if needed.
-The deployment scripts use a serial runner and swap for the 1 GB Oracle micro VM.
+The Oracle VM deployment scripts, managed SSH tunnel, optional n8n workflow, and presentation launcher are described in the [runbook](docs/presentation-runbook.md).
 
-```powershell
-python ops/oracle_bastion.py
-# Once the session is ACTIVE:
-python ops/oracle_ssh.py --tunnel
-```
+To view saved run evidence without a live model or Oracle connection, use `./ops/start_offline_demo.ps1` and open `http://127.0.0.1:18888/offline.html`. The offline page is a recorded run, not a live scan. The bundled API demo is also available, but labels its host-side runner as trusted; real GitHub submissions require Docker isolation.
 
-Open `http://127.0.0.1:18000` for the Oracle dashboard and
-`http://127.0.0.1:15678` for n8n. Keep the tunnel process running.
-On this presentation laptop, `./ops/start_presentation.ps1` restores the tunnel.
-`./ops/start_offline_demo.ps1` serves saved evidence at
-`http://127.0.0.1:18888/offline.html` without Oracle or model connectivity.
-
-Deployment files: `ops/compose.oracle.yml`, `ops/bootstrap_oracle.sh`, and
-`ops/package_prototype.py`. Build the frontend before packaging. Transfer the
-archive and a minimal `backend/.env` over SSH, then run the bootstrap script.
-The API uses OCI instance principal authentication; its dynamic group requires
-inference permission. GitHub credentials stay in the remote `.env`, outside the
-image. SQLite, artifacts and n8n state have persistent Docker volumes.
-
-The generated `vasuki_n8n_soar_workflow.json` accepts a POST containing
-`repo_url`, optional `branch` and `project_path`, and `publish_pr`. It submits
-the actual backend run, returns its scan ID, and polls until completed, blocked,
-or failed. Publish it with the n8n CLI, then restart n8n. The dashboard can route
-submissions through this workflow when the webhook is configured.
-
-## Checks and prototype scope
+## Checks
 
 ```powershell
 python -m pytest backend/tests -q
 npm run build
 ```
 
-The checks exercise real exploit behavior before and after repairs, preservation
-of passing tests, blocking on lost coverage or execution failure, URL validation,
-and patch path boundaries. The vulnerable testbed's five failures are intentional.
+The backend tests cover patch boundaries, review and retry behavior, and verification gates. The deliberately vulnerable [demo repository](https://github.com/dhanrajgupta2736/vasuki-security-lab) is designed to show the before/after behavior.
 
-This is a working prototype for supported Python repositories with pytest.
-Native source rules cover specific Flask/SQLite patterns, not every language or
-security flaw. Dependency auditing currently covers explicitly declared Python
-requirements; audit errors and skipped packages block publication. Direct
-package URLs, nested requirements files and source-only dependency installs
-currently block. Python packages with dynamic dependency metadata need explicit
-requirements. Node projects
-currently block when no structured test evidence is available. Source review
-and tests reduce demonstrated risk; a draft PR still requires human review for
-broader correctness. Password hashing, production authentication, unrestricted
-language coverage, and distributed runners are outside this demo's scope.
+## Scope and limitations
+
+VASUKI is currently a Python/pytest prototype. Native source analysis and deterministic AST repairs cover selected Flask/SQLite patterns; Python dependency advisories are checked from supported requirements declarations. Model-generated fixes for other findings are not broadly validated across frameworks or vulnerability classes. Semgrep mode is optional and does not by itself establish that a fix is correct.
+
+Repositories need a supported, runnable test suite. Missing or uncollected tests, unavailable Docker, failed builds, changed test inputs, unresolved findings, or an exhausted repair budget block PR publication. Other languages, arbitrary repository layouts, source-only Python dependencies, and unrestricted multi-tenant hosting are outside the verified scope. A successful run does not replace maintainer review; only a human should merge the draft PR.
+
+## Project links
+
+- [Hosted dashboard UI](https://vasuki.dhanrajgupta.xyz)
+- [Security demo repository](https://github.com/dhanrajgupta2736/vasuki-security-lab)
+- [Example application draft PR](https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/7)
+- [Example older-branch draft PR](https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/8)
+- [Deployment and demo runbook](docs/presentation-runbook.md)
