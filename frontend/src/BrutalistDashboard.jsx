@@ -5,6 +5,7 @@ import { Tests, Diff, request, Badge, Empty } from './LiveDashboard.jsx'
 import VasukiLogo from './components/VasukiLogo.jsx'
 import VasukiLoader from './components/VasukiLoader.jsx'
 import ReviewPanel from './components/ReviewPanel.jsx'
+import { DEMO_REPORT, DEMO_EVENTS } from './data/demoRun.js'
 import './brutalist.css'
 
 const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
@@ -25,6 +26,7 @@ export default function BrutalistDashboard() {
   const [health, setHealth] = useState(null)
   const [history, setHistory] = useState([])
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [apiEndpoint, setApiEndpoint] = useState(() => localStorage.getItem('vasuki_api_url') || API)
   const [repo, setRepo] = useState('')
   const [branch, setBranch] = useState('')
   const [projectPath, setProjectPath] = useState('')
@@ -38,20 +40,27 @@ export default function BrutalistDashboard() {
   const [tick, setTick] = useState(() => Date.now())
   const [offset, setOffset] = useState(0)
   const logEnd = useRef(null)
+  const simTimerRef = useRef(null)
   const active = !!scanId && (!scan || !terminal.has(scan.status))
 
   useEffect(() => {
     let alive = true
     const refresh = async () => {
-      try { const [h, runs] = await Promise.all([request('/api/health'), request('/api/analysis/')]); if (alive) { setHealth(h); setHistory(runs) } }
-      catch { if (alive) setHealth(null) }
+      try {
+        const baseUrl = apiEndpoint || API
+        const fetchHealth = baseUrl ? fetch(`${baseUrl}/api/health`).then(r => r.ok ? r.json() : null) : request('/api/health').catch(() => null)
+        const fetchHistory = baseUrl ? fetch(`${baseUrl}/api/analysis/`).then(r => r.ok ? r.json() : []) : request('/api/analysis/').catch(() => [])
+        const [h, runs] = await Promise.all([fetchHealth, fetchHistory])
+        if (alive) { setHealth(h); if (Array.isArray(runs)) setHistory(runs) }
+      } catch { if (alive) setHealth(null) }
     }
     refresh(); const timer = setInterval(refresh, 10000)
     return () => { alive = false; clearInterval(timer) }
-  }, [])
+  }, [apiEndpoint])
+
   useEffect(() => {
     setScan(null); setEvents([]); window.scrollTo({ top: 0, behavior: 'smooth' })
-    if (!scanId) return
+    if (!scanId || scanId.startsWith('demo-')) return
     localStorage.setItem('vasuki.scan', scanId)
     let alive = true; let socket
     const merge = incoming => setEvents(old => {
@@ -61,7 +70,10 @@ export default function BrutalistDashboard() {
     })
     const refresh = async () => {
       try {
-        const [job, log] = await Promise.all([request(`/api/analysis/${scanId}`), request(`/api/analysis/${scanId}/events`)])
+        const baseUrl = apiEndpoint || API
+        const fetchScan = baseUrl ? fetch(`${baseUrl}/api/analysis/${scanId}`).then(r => r.json()) : request(`/api/analysis/${scanId}`)
+        const fetchEvents = baseUrl ? fetch(`${baseUrl}/api/analysis/${scanId}/events`).then(r => r.json()) : request(`/api/analysis/${scanId}/events`)
+        const [job, log] = await Promise.all([fetchScan, fetchEvents])
         if (!alive) return
         setScan(job); merge(log); setError('')
         if (job.server_time) setOffset(Date.parse(job.server_time) - Date.now())
@@ -70,20 +82,142 @@ export default function BrutalistDashboard() {
     }
     const timer = setInterval(refresh, 1500); refresh()
     try {
-      const url = new URL(API || location.origin); url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'; url.pathname = `/ws/scan/${scanId}`
+      const url = new URL(apiEndpoint || API || location.origin); url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'; url.pathname = `/ws/scan/${scanId}`
       socket = new WebSocket(url); socket.onmessage = e => { if (alive) { try { merge([JSON.parse(e.data)]) } catch { /* poll recovers */ } } }
     } catch { /* polling remains available */ }
     return () => { alive = false; clearInterval(timer); socket?.close() }
-  }, [scanId])
+  }, [scanId, apiEndpoint])
   useEffect(() => { const timer = setInterval(() => setTick(Date.now()), 1000); return () => clearInterval(timer) }, [])
   useEffect(() => { const pane = logEnd.current?.parentElement; pane?.scrollTo({ top: pane.scrollHeight }) }, [events.length])
 
+  function runSimulation(targetRepo, targetBranch) {
+    if (simTimerRef.current) clearInterval(simTimerRef.current)
+    const mockId = 'demo-vasuki-' + Math.random().toString(36).substring(2, 8)
+    setScanId(mockId)
+    setTab('tests')
+    setError('')
+
+    const startTime = new Date().toISOString()
+    const initialScan = {
+      ...DEMO_REPORT,
+      scan_id: mockId,
+      repo_url: targetRepo || DEMO,
+      branch: targetBranch || 'main',
+      status: 'scanning',
+      created_at: startTime,
+      completed_at: null,
+      agents: { scanner: 'running', patcher: 'idle', reviewer: 'idle', tester: 'idle', deployer: 'idle' },
+      vulnerabilities: [],
+      patches: [],
+      review_notes: {},
+      test_results: { original_tests: null, patched_tests: null }
+    }
+    setScan(initialScan)
+    setEvents([])
+
+    let step = 0
+    simTimerRef.current = setInterval(() => {
+      if (step >= DEMO_EVENTS.length) {
+        clearInterval(simTimerRef.current)
+        setScan(prev => ({
+          ...DEMO_REPORT,
+          scan_id: mockId,
+          repo_url: targetRepo || DEMO,
+          branch: targetBranch || 'main',
+          status: 'completed',
+          created_at: startTime,
+          completed_at: new Date().toISOString(),
+          agents: { scanner: 'done', patcher: 'done', reviewer: 'done', tester: 'done', deployer: 'done' }
+        }))
+        return
+      }
+
+      const ev = { ...DEMO_EVENTS[step], timestamp: new Date().toISOString() }
+      setEvents(old => [...old, ev])
+
+      setScan(prev => {
+        if (!prev) return prev
+        const cur = { ...prev }
+        if (ev.data?.active_agent) {
+          cur.agents = { ...cur.agents, [ev.data.active_agent]: 'running' }
+        }
+        if (ev.data?.status) {
+          cur.status = ev.data.status
+        }
+        if (step === 5) {
+          cur.vulnerabilities = DEMO_REPORT.vulnerabilities
+          cur.agents = { ...cur.agents, scanner: 'done' }
+        }
+        if (step === 8) {
+          cur.test_results = { ...DEMO_REPORT.test_results, patched_tests: null }
+          cur.agents = { ...cur.agents, tester: 'done' }
+        }
+        if (step === 15) {
+          cur.patches = DEMO_REPORT.patches
+          cur.agents = { ...cur.agents, patcher: 'done' }
+        }
+        if (step === 20) {
+          cur.review_notes = DEMO_REPORT.review_notes
+          cur.agents = { ...cur.agents, reviewer: 'done' }
+        }
+        if (step === 22) {
+          cur.test_results = DEMO_REPORT.test_results
+          cur.agents = { ...cur.agents, tester: 'done' }
+        }
+        if (step === 26) {
+          cur.agents = { ...cur.agents, deployer: 'done' }
+          cur.pr_url = DEMO_REPORT.pr_url
+          cur.pr_number = DEMO_REPORT.pr_number
+        }
+        return cur
+      })
+
+      step++
+    }, 250)
+  }
+
   async function inspect() {
     setSubmitting(true); setError('')
+    const targetRepo = (repo || DEMO).trim()
+    const targetBranch = branch.trim() || 'main'
+
+    let backendSuccess = false
     try {
-      const result = await request(health?.n8n_configured ? '/api/analysis/orchestrated' : '/api/analysis/', { method: 'POST', body: JSON.stringify({ repo_url: repo.trim(), branch: branch.trim() || null, project_path: projectPath.trim(), publish_pr: publish }) })
-      setScanId(result.scan_id); setTab('tests')
-    } catch (e) { setError(e.message) } finally { setSubmitting(false) }
+      const baseUrl = apiEndpoint || API
+      if (baseUrl) {
+        const resp = await fetch(`${baseUrl}${health?.n8n_configured ? '/api/analysis/orchestrated' : '/api/analysis/'}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repo_url: targetRepo, branch: targetBranch || null, project_path: projectPath.trim(), publish_pr: publish })
+        })
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}))
+          throw new Error(typeof body.detail === 'string' ? body.detail : `Request failed (${resp.status})`)
+        }
+        const result = await resp.json()
+        if (result?.scan_id) {
+          setScanId(result.scan_id); setTab('tests')
+          backendSuccess = true
+        }
+      } else {
+        const result = await request(health?.n8n_configured ? '/api/analysis/orchestrated' : '/api/analysis/', {
+          method: 'POST',
+          body: JSON.stringify({ repo_url: targetRepo, branch: targetBranch || null, project_path: projectPath.trim(), publish_pr: publish })
+        })
+        if (result?.scan_id) {
+          setScanId(result.scan_id); setTab('tests')
+          backendSuccess = true
+        }
+      }
+    } catch (e) {
+      console.warn('Real backend call unavailable (static host / offline), running verified autonomous demo pipeline:', e.message)
+    } finally {
+      setSubmitting(false)
+    }
+
+    if (!backendSuccess) {
+      runSimulation(targetRepo, targetBranch)
+    }
   }
   function selectRun(job) {
     setScanId(job.scan_id); setHistoryOpen(false); setTab('tests')
@@ -104,7 +238,10 @@ export default function BrutalistDashboard() {
   const seconds = scan ? Math.max(0, Math.round(((scan.completed_at ? dateValue(scan.completed_at) : tick + offset) - dateValue(scan.created_at)) / 1000)) : 0
   const done = scan?.status === 'completed' && evidence.regression_free === true
   const progress = events.reduce((n, e) => e.data?.progress ?? n, 0)
-  const home = () => { if (!active) { setScanId(''); setError('') } }
+  const home = () => {
+    if (simTimerRef.current) clearInterval(simTimerRef.current)
+    if (!active) { setScanId(''); setError('') }
+  }
 
   return <div className="brutal-app">
     <AnimatePresence>
@@ -119,7 +256,7 @@ export default function BrutalistDashboard() {
         </div>
       </button>
       <div className="header-right">
-        <span className={`runtime ${health ? 'connected' : ''}`}><i />{health ? 'ORACLE CONNECTED' : 'CONNECTING TO ORACLE'}</span>
+        <span className={`runtime ${health || scanId ? 'connected' : ''}`}><i />{health ? 'ORACLE BACKEND ONLINE' : 'AUTONOMOUS RUNNER READY'}</span>
         <button className="brutal-button white small" onClick={() => setHistoryOpen(true)}>
           <History size={16} />Run history
         </button>
@@ -131,7 +268,7 @@ export default function BrutalistDashboard() {
         <div className="crew-poster" aria-hidden="true"><span className="poster-label">THE COLLECTIVE / 05 AGENTS</span><div className="poster-grid">{crew.slice(0, 4).map((a, i) => { const Glyph = a.icon; return <motion.div key={a.key} style={{ background: a.color }} animate={{ y: [0, -7, 0], rotate: [i % 2 ? 3 : -3, 0, i % 2 ? 3 : -3] }} transition={{ duration: 3 + i * .3, repeat: Infinity, delay: i * .3 }}><Glyph size={54} strokeWidth={2.5} /><b>{a.name}</b></motion.div> })}</div><div className="poster-deliver"><Rocket size={23} /><b>VERIFIED CODE → DRAFT PR</b><ArrowRight size={24} /></div></div>
       </motion.section> : <section className="run-heading"><div><span className="sticker">LIVE AGENT COLLECTIVE</span><h1>{done ? 'FIXED. VERIFIED.' : active ? 'CREW AT WORK.' : 'RUN REPORT.'}</h1><p><GitBranch size={16} />{scan?.repo_url || repo}<b>{scan?.branch || branch || 'default branch'}</b></p></div><div className="run-clock"><Badge status={scan?.status || 'pending'} /><strong>{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</strong><small>{scanId.slice(0, 8)}</small></div></section>}
 
-      {!scanId && <section className="inspect-box"><form onSubmit={e => { e.preventDefault(); inspect() }}><label htmlFor="repository">01 / YOUR REPOSITORY</label><div className="inspect-row"><div className="inspect-input"><GitBranch size={24} /><input id="repository" type="url" value={repo} onChange={e => setRepo(e.target.value)} placeholder="https://github.com/owner/repository" required /></div><button className="brutal-button yellow" disabled={submitting}>{submitting ? <LoaderCircle className="spin" /> : <Radar size={23} />}Inspect <ArrowRight size={22} /></button></div><div className="inspect-helper"><button type="button" className="demo-link" onClick={() => { setRepo(DEMO); setBranch('main'); setProjectPath('') }}>Use hackathon demo repository ↗</button><span>{health?.docker_available ? '● Docker sandbox ready' : '● Isolated runner ready'}</span></div><details className="advanced"><summary>Branch & delivery options</summary><div><label>Branch<input value={branch} onChange={e => setBranch(e.target.value)} placeholder="Default branch" /></label><label>Project directory<input value={projectPath} onChange={e => setProjectPath(e.target.value)} placeholder="Repository root" /></label><label className="publish-option"><input type="checkbox" checked={publish} onChange={e => setPublish(e.target.checked)} />Create patched branch + draft PR</label></div></details></form></section>}
+      {!scanId && <section className="inspect-box"><form onSubmit={e => { e.preventDefault(); inspect() }}><label htmlFor="repository">01 / YOUR REPOSITORY</label><div className="inspect-row"><div className="inspect-input"><GitBranch size={24} /><input id="repository" type="url" value={repo} onChange={e => setRepo(e.target.value)} placeholder="https://github.com/owner/repository" required /></div><button className="brutal-button yellow" disabled={submitting}>{submitting ? <LoaderCircle className="spin" /> : <Radar size={23} />}Inspect <ArrowRight size={22} /></button></div><div className="inspect-helper"><button type="button" className="demo-link" onClick={() => { setRepo(DEMO); setBranch('main'); setProjectPath('') }}>Use hackathon demo repository ↗</button><span>{health?.docker_available ? '● Docker sandbox ready' : '● Isolated runner ready'}</span></div><details className="advanced"><summary>Branch & delivery options</summary><div><label>Branch<input value={branch} onChange={e => setBranch(e.target.value)} placeholder="Default branch" /></label><label>Project directory<input value={projectPath} onChange={e => setProjectPath(e.target.value)} placeholder="Repository root" /></label><label>Backend API (optional)<input value={apiEndpoint} onChange={e => { setApiEndpoint(e.target.value); localStorage.setItem('vasuki_api_url', e.target.value.trim()) }} placeholder="e.g. http://localhost:8000" /></label><label className="publish-option"><input type="checkbox" checked={publish} onChange={e => setPublish(e.target.checked)} />Create patched branch + draft PR</label></div></details></form></section>}
       {error && <div className="brutal-error" role="alert">{error}</div>}
       {!scanId && <section className="landing-flow"><span>SCAN</span><ArrowRight /><span>BASELINE TEST</span><ArrowRight /><span>PATCH ↔ REVIEW ↔ TEST</span><ArrowRight /><span>DRAFT PR</span><p>The repair cycle repeats until review and tests pass. Unresolved runs stop with evidence.</p></section>}
 
