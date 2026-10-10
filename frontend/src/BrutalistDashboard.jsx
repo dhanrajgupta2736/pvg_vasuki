@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, Check, Code2, ExternalLink, GitBranch, History, LoaderCircle, Radar, Rocket, ShieldCheck, Sparkles, TestTubes, X } from 'lucide-react'
+import { ArrowRight, Check, Code2, ExternalLink, GitBranch, History, LoaderCircle, Radar, Rocket, ShieldCheck, TestTubes, X } from 'lucide-react'
 import { Tests, Diff, request, Badge, Empty } from './LiveDashboard.jsx'
 import VasukiLogo from './components/VasukiLogo.jsx'
+import VasukiLoader from './components/VasukiLoader.jsx'
 import ReviewPanel from './components/ReviewPanel.jsx'
-import CodeRabbitCompareModal from './components/CodeRabbitCompareModal.jsx'
 import './brutalist.css'
 
 const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
@@ -21,10 +21,10 @@ const labelFor = key => crew.find(a => a.key === key)?.name || key
 function dateValue(value) { return Date.parse(value && !/[Z+]|-\d\d:\d\d$/.test(value.slice(10)) ? value + 'Z' : value) }
 
 export default function BrutalistDashboard() {
+  const [showSplash, setShowSplash] = useState(true)
   const [health, setHealth] = useState(null)
   const [history, setHistory] = useState([])
   const [historyOpen, setHistoryOpen] = useState(false)
-  const [compareOpen, setCompareOpen] = useState(false)
   const [repo, setRepo] = useState('')
   const [branch, setBranch] = useState('')
   const [projectPath, setProjectPath] = useState('')
@@ -107,6 +107,9 @@ export default function BrutalistDashboard() {
   const home = () => { if (!active) { setScanId(''); setError('') } }
 
   return <div className="brutal-app">
+    <AnimatePresence>
+      {showSplash && <VasukiLoader onFinish={() => setShowSplash(false)} />}
+    </AnimatePresence>
     <header className="brutal-header">
       <button className="brutal-brand" onClick={home} disabled={active} aria-label="VASUKI home">
         <VasukiLogo size={46} showImage={true} />
@@ -117,9 +120,6 @@ export default function BrutalistDashboard() {
       </button>
       <div className="header-right">
         <span className={`runtime ${health ? 'connected' : ''}`}><i />{health ? 'ORACLE CONNECTED' : 'CONNECTING TO ORACLE'}</span>
-        <button className="brutal-button white small compare-btn" onClick={() => setCompareOpen(true)}>
-          <Sparkles size={16} />VASUKI vs CodeRabbit
-        </button>
         <button className="brutal-button white small" onClick={() => setHistoryOpen(true)}>
           <History size={16} />Run history
         </button>
@@ -165,6 +165,5 @@ export default function BrutalistDashboard() {
     <AnimatePresence>
       {historyOpen && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setHistoryOpen(false)}><motion.div className="history-modal panel" initial={{ x: 100 }} animate={{ x: 0 }} onClick={e => e.stopPropagation()}><div className="section-label"><b>RUN HISTORY</b><button className="icon-button" aria-label="Close history" onClick={() => setHistoryOpen(false)}><X /></button></div>{history.map(job => <button className="history-entry" key={job.scan_id} onClick={() => selectRun(job)}><div><strong>{job.repo_url.split('/').slice(-2).join('/')}</strong><span>{job.scan_id.slice(0, 8)} · {job.branch || 'default branch'}</span></div><Badge status={job.status} /><ArrowRight size={18} /></button>)}</motion.div></motion.div>}
     </AnimatePresence>
-    <CodeRabbitCompareModal isOpen={compareOpen} onClose={() => setCompareOpen(false)} />
   </div>
 }
