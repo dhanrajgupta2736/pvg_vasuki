@@ -5,6 +5,7 @@ import { Tests, Diff, request, Badge, Empty } from './LiveDashboard.jsx'
 import VasukiLogo from './components/VasukiLogo.jsx'
 import VasukiLoader from './components/VasukiLoader.jsx'
 import ReviewPanel from './components/ReviewPanel.jsx'
+import GitHubConnect, { GithubIcon } from './components/GitHubConnect.jsx'
 import { DEMO_REPORT, DEMO_EVENTS } from './data/demoRun.js'
 import './brutalist.css'
 
@@ -26,6 +27,8 @@ export default function BrutalistDashboard() {
   const [health, setHealth] = useState(null)
   const [history, setHistory] = useState([])
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [ghOpen, setGhOpen] = useState(false)
+  const ghConnected = !!localStorage.getItem('vasuki_gh_token')
   const [apiEndpoint, setApiEndpoint] = useState(() => localStorage.getItem('vasuki_api_url') || API)
   const [repo, setRepo] = useState('')
   const [branch, setBranch] = useState('')
@@ -268,6 +271,9 @@ export default function BrutalistDashboard() {
       </button>
       <div className="header-right">
         <span className={`runtime ${health || scanId ? 'connected' : ''}`}><i />{health ? 'ORACLE BACKEND ONLINE' : 'AUTONOMOUS RUNNER READY'}</span>
+        <button className={`gh-connect-btn ${ghConnected ? 'connected' : ''}`} onClick={() => setGhOpen(true)}>
+          <GithubIcon size={15} />{ghConnected ? 'My Repos' : 'Connect GitHub'}
+        </button>
         <button className="brutal-button white small" onClick={openHistory}>
           <History size={16} />Run history
         </button>
@@ -279,7 +285,7 @@ export default function BrutalistDashboard() {
         <div className="crew-poster" aria-hidden="true"><span className="poster-label">THE COLLECTIVE / 05 AGENTS</span><div className="poster-grid">{crew.slice(0, 4).map((a, i) => { const Glyph = a.icon; return <motion.div key={a.key} style={{ background: a.color }} animate={{ y: [0, -7, 0], rotate: [i % 2 ? 3 : -3, 0, i % 2 ? 3 : -3] }} transition={{ duration: 3 + i * .3, repeat: Infinity, delay: i * .3 }}><Glyph size={54} strokeWidth={2.5} /><b>{a.name}</b></motion.div> })}</div><div className="poster-deliver"><Rocket size={23} /><b>VERIFIED CODE → DRAFT PR</b><ArrowRight size={24} /></div></div>
       </motion.section> : <section className="run-heading"><div><span className="sticker">LIVE AGENT COLLECTIVE</span><h1>{done ? 'FIXED. VERIFIED.' : active ? 'CREW AT WORK.' : 'RUN REPORT.'}</h1><p><GitBranch size={16} />{scan?.repo_url || repo}<b>{scan?.branch || branch || 'default branch'}</b></p></div><div className="run-clock"><Badge status={scan?.status || 'pending'} /><strong>{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</strong><small>{scanId.slice(0, 8)}</small></div></section>}
 
-      {!scanId && <section className="inspect-box"><form onSubmit={e => { e.preventDefault(); inspect() }}><label htmlFor="repository">01 / YOUR REPOSITORY</label><div className="inspect-row"><div className="inspect-input"><GitBranch size={24} /><input id="repository" type="url" value={repo} onChange={e => setRepo(e.target.value)} placeholder="https://github.com/owner/repository" required /></div><button className="brutal-button yellow" disabled={submitting}>{submitting ? <LoaderCircle className="spin" /> : <Radar size={23} />}Inspect <ArrowRight size={22} /></button></div><div className="inspect-helper"><button type="button" className="demo-link" onClick={() => { setRepo(DEMO); setBranch('main'); setProjectPath('') }}>Use hackathon demo repository ↗</button><span>{health?.docker_available ? '● Docker sandbox ready' : '● Isolated runner ready'}</span></div><details className="advanced"><summary>Branch & delivery options</summary><div><label>Branch<input value={branch} onChange={e => setBranch(e.target.value)} placeholder="Default branch" /></label><label>Project directory<input value={projectPath} onChange={e => setProjectPath(e.target.value)} placeholder="Repository root" /></label><label>Backend API (optional)<input value={apiEndpoint} onChange={e => { setApiEndpoint(e.target.value); localStorage.setItem('vasuki_api_url', e.target.value.trim()) }} placeholder="e.g. http://localhost:8000" /></label><label className="publish-option"><input type="checkbox" checked={publish} onChange={e => setPublish(e.target.checked)} />Create patched branch + draft PR</label></div></details></form></section>}
+      {!scanId && <section className="inspect-box"><form onSubmit={e => { e.preventDefault(); inspect() }}><label htmlFor="repository">01 / YOUR REPOSITORY</label><div className="inspect-row"><div className="inspect-input"><GitBranch size={24} /><input id="repository" type="url" value={repo} onChange={e => setRepo(e.target.value)} placeholder="https://github.com/owner/repository" required /></div><button className="brutal-button yellow" disabled={submitting}>{submitting ? <LoaderCircle className="spin" /> : <Radar size={23} />}Inspect <ArrowRight size={22} /></button></div><div className="inspect-helper"><button type="button" className="demo-link" onClick={() => { setRepo(DEMO); setBranch('main'); setProjectPath('') }}>Use hackathon demo repository ↗</button><button type="button" className="demo-link" onClick={() => setGhOpen(true)} style={{marginLeft: 8}}><GithubIcon size={12} style={{verticalAlign: -2}} /> Or browse your GitHub repos</button><span>{health?.docker_available ? '● Docker sandbox ready' : '● Isolated runner ready'}</span></div><details className="advanced"><summary>Branch & delivery options</summary><div><label>Branch<input value={branch} onChange={e => setBranch(e.target.value)} placeholder="Default branch" /></label><label>Project directory<input value={projectPath} onChange={e => setProjectPath(e.target.value)} placeholder="Repository root" /></label><label>Backend API (optional)<input value={apiEndpoint} onChange={e => { setApiEndpoint(e.target.value); localStorage.setItem('vasuki_api_url', e.target.value.trim()) }} placeholder="e.g. http://localhost:8000" /></label><label className="publish-option"><input type="checkbox" checked={publish} onChange={e => setPublish(e.target.checked)} />Create patched branch + draft PR</label></div></details></form></section>}
       {error && <div className="brutal-error" role="alert">{error}</div>}
       {!scanId && <section className="landing-flow"><span>SCAN</span><ArrowRight /><span>BASELINE TEST</span><ArrowRight /><span>PATCH ↔ REVIEW ↔ TEST</span><ArrowRight /><span>DRAFT PR</span><p>The repair cycle repeats until review and tests pass. Unresolved runs stop with evidence.</p></section>}
 
@@ -312,6 +318,9 @@ export default function BrutalistDashboard() {
     </main>
     <AnimatePresence>
       {historyOpen && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setHistoryOpen(false)}><motion.div className="history-modal panel" initial={{ x: 100 }} animate={{ x: 0 }} onClick={e => e.stopPropagation()}><div className="section-label"><b>RUN HISTORY ({history.length})</b><button className="icon-button" aria-label="Close history" onClick={() => setHistoryOpen(false)}><X /></button></div>{history.length ? history.map(job => <button className="history-entry" key={job.scan_id} onClick={() => selectRun(job)}><div><strong>{job.repo_url.split('/').slice(-2).join('/')}</strong><span>{job.scan_id.slice(0, 8)} · {job.branch || 'default branch'}</span></div><Badge status={job.status} /><ArrowRight size={18} /></button>) : <div style={{ padding: '36px 20px', textAlign: 'center', fontFamily: 'monospace', color: '#666' }}><LoaderCircle className="spin" style={{ margin: '0 auto 10px' }} size={24} /><div>Connecting to Oracle run history...</div></div>}</motion.div></motion.div>}
+    </AnimatePresence>
+    <AnimatePresence>
+      {ghOpen && <GitHubConnect apiEndpoint={apiEndpoint || API} onSelectRepo={(url, br) => { setRepo(url); setBranch(br || ''); setProjectPath('') }} onClose={() => setGhOpen(false)} />}
     </AnimatePresence>
   </div>
 }

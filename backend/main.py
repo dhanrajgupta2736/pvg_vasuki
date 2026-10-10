@@ -34,7 +34,7 @@ from core.database import init_db
 from core.database import AsyncSessionLocal
 from models.scan_job import ScanJob, ScanStatus
 from sqlalchemy import update
-from api.routes import analysis, health, reports, websocket_routes
+from api.routes import analysis, health, reports, websocket_routes, github_connect
 
 
 @asynccontextmanager
@@ -70,6 +70,7 @@ app.include_router(health.router,    prefix="/api",           tags=["Health"])
 app.include_router(analysis.router,  prefix="/api/analysis",  tags=["Analysis"])
 app.include_router(reports.router,   prefix="/api/reports",   tags=["Reports"])
 app.include_router(websocket_routes.router, prefix="/ws",     tags=["WebSocket"])
+app.include_router(github_connect.router, prefix="/api/github", tags=["GitHub Connect"])
 
 
 frontend_dist = Path(__file__).resolve().parents[1] / 'frontend' / 'dist'
