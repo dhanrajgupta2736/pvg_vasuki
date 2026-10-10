@@ -8,3 +8,6 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}.geo-square{transform:none!important}}
 
 .verification-checks{display:grid;gap:9px;margin-top:18px;font-size:10px;color:#607650}.verification-checks strong{font-size:12px;margin-bottom:5px}.verification-checks>div{display:flex;align-items:center;gap:8px;text-transform:capitalize}
+.severity.unknown{background:#e9eade;border-color:#d2d7c8;color:#626e5c}
+.build-evidence{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.build-evidence>div{border:1px solid var(--line);padding:12px;min-width:0}.build-evidence span,.build-evidence small{display:block;font-size:9px;color:#77806f}.build-evidence b{display:block;font-size:12px;margin:7px 0}.build-evidence b.success-text{color:var(--green)}.build-evidence .output{margin-top:7px}.build-evidence pre{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(min-width:801px){.event{font-size:11px}.event-time{font-size:9px}.event-agent{font-size:9px}.finding p,.review-item p,.review-note{font-size:12px}.file-location,.snippet,.patch pre{font-size:10px}.proof-strip,.build-evidence span,.build-evidence small{font-size:10px}.test-name{font-size:10px}table{font-size:11px}.metric p{font-size:10px}.tabs button{font-size:12px}}

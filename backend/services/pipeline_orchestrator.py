@@ -16,6 +16,7 @@ from core.database import AsyncSessionLocal
 from core.redis_client import publish_event,set_scan_state
 from core.config import settings
 from models.scan_job import ScanJob,ScanStatus,AgentStatus
+from services.project_validation import test_manifest, compare_manifests, VerificationUnavailable
 
 _pipeline_lock = asyncio.Lock()
 
@@ -32,12 +33,15 @@ def build_pr_description(scan_id,findings,patches,review,tests,base_sha,patch_sh
     issues = '\n'.join(f"- {v.get('cwe_id') or v.get('cve_id') or v['category']}: `{v['file']}` — {v['message']}" for v in findings)
     models = ', '.join(sorted({p['model_used'] for p in patches}))
     fixed = '\n'.join('- `'+name+'`' for name in tests.get('fixed_tests',[])) or '- No pre-existing failing tests changed status.'
+    rationales='\n'.join('- '+p.get('rationale',p['category']) for p in patches)
     return f'''## Security issue and fix
 {issues}
 
-The patch binds SQL values, enforces filesystem boundaries, or validates object
-ownership as applicable to the findings above. Inspect the file diffs for the
-specific changes. Source checks used the same rules before and after patching.
+Targeted change rationale:
+{rationales}
+
+Source checks used the same rules before and after patching. Inspect the file
+diffs for the specific implementation changes.
 
 ## Executed test evidence
 | Metric | Before | After |
@@ -48,6 +52,10 @@ specific changes. Source checks used the same rules before and after patching.
 | Collected tests | {before['total']} | {after['total']} |
 
 - Runner: `{after['runner']}`
+- Repair cycles executed: {len(tests.get('rounds',[]))}
+- Project build: `{after.get('build',{}).get('kind','not recorded')}` — {'passed' if after.get('build',{}).get('success') else 'unverified'}
+- Test code and configuration unchanged: {tests.get('test_inputs_unchanged',False)}
+- Build-time and test-time input fingerprints unchanged: {after.get('test_inputs',{}).get('unchanged',False)}
 - Security tests passed: {tests['security_tests_count']}
 - Previously passing tests retained: {not tests['regressions']}
 - Missing tests: {len(tests['missing_tests'])}
@@ -74,16 +82,23 @@ async def run_full_pipeline(scan_id,repo_url,branch=None,project_path='',bundled
 async def _run(scan_id,repo_url,branch,project_path,bundled,publish_pr):
     started=time.monotonic()
     active='scanner'
-    evidence={'source':'bundled' if bundled else 'github','project_path':project_path,'publish_pr':publish_pr}
+    evidence={'source':'bundled' if bundled else 'github','project_path':project_path,'publish_pr':publish_pr,'rounds':[]}
     patches=[]
     notes={}
-    async def stage(status,agent,progress,message):
+    async def stage(status,agent,progress,message,phase=None,iteration=0):
         nonlocal active
         active=agent
-        await _update_job(scan_id,status=status,**{'agent_'+agent:AgentStatus.RUNNING})
-        await set_scan_state(scan_id,{'status':status.value,'active_agent':agent,'progress':progress})
-        await emit_pipeline(scan_id,message,{'progress':progress,'active_agent':agent})
+        if agent=='deployer':
+            evidence['delivery']={'status':'running','branch':evidence.get('patch_branch','')}
+            await _update_job(scan_id,status=status,test_results=evidence)
+        else:
+            await _update_job(scan_id,status=status,**{'agent_'+agent:AgentStatus.RUNNING})
+        handoff={'status':status.value,'active_agent':agent,'progress':progress,'phase':phase or agent,'iteration':iteration}
+        await set_scan_state(scan_id,handoff)
+        await emit_pipeline(scan_id,message,handoff)
     async def finish(status,message):
+        if active=='deployer':
+            evidence['delivery']['status']='done' if status==ScanStatus.COMPLETED else 'error'
         checks={
             'source_rescan_clear':notes.get('all_findings_resolved') is True,
             'patched_suite_passed':evidence.get('patched_tests',{}).get('success') is True,
@@ -91,8 +106,11 @@ async def _run(scan_id,repo_url,branch,project_path,bundled,publish_pr):
             'security_exploits_blocked':evidence.get('security_tests_passed') is True,
             'diff_within_limit':bool(patches) and evidence.get('changed_lines',settings.MAX_TOTAL_CHANGED_LINES+1)<=settings.MAX_TOTAL_CHANGED_LINES,
         }
+        checks['project_builds_passed']=all(evidence.get(key,{}).get('build',{}).get('success') is True for key in ('original_tests','patched_tests'))
+        checks['test_inputs_unchanged']=evidence.get('test_inputs_unchanged') is True and all(evidence.get(key,{}).get('test_inputs',{}).get('unchanged') is True for key in ('original_tests','patched_tests'))
         evidence['verification_checks']=checks
-        evidence['verification_score']=20*sum(checks.values())
+        evidence['verification_score']=round(100*sum(checks.values())/len(checks))
+        evidence['verification_version']=2
         evidence['elapsed_seconds']=round(time.monotonic()-started,2)
         evidence['outcome']=message
         (scan_directory(scan_id)/'evidence.json').write_text(json.dumps(evidence,indent=2),encoding='utf-8')
@@ -106,69 +124,98 @@ async def _run(scan_id,repo_url,branch,project_path,bundled,publish_pr):
         result=await run_scanner(repo_url,scan_id,branch,project_path,bundled)
         repo_path,project_root=result['repo_path'],result['project_root']
         findings=result['vulnerabilities']
-        evidence.update({'base_sha':result['base_sha'],'branch':result['branch'],'scanner':'native-ast+semgrep' if settings.SCANNER_MODE=='semgrep' else 'native-ast'})
+        evidence.update({'base_sha':result['base_sha'],'branch':result['branch'],'dependency_audit':result['dependency_audit'],
+                         'scanner':'native-ast+semgrep' if settings.SCANNER_MODE=='semgrep' else 'native-ast'})
+        original_manifest=test_manifest(project_root)
         await _update_job(scan_id,branch=result['branch'],agent_scanner=AgentStatus.DONE,
                           vulnerabilities=findings,blast_radius=result['blast_radius'])
         if not findings:
             await finish(ScanStatus.COMPLETED,'No findings returned by the configured source analyzer')
             return
+        await stage(ScanStatus.TESTING,'tester',18,'PROOF: building the vulnerable baseline and recording unchanged tests','baseline')
         baseline=await run_baseline_tester(project_root,scan_id,trusted=bundled)
         evidence['original_tests']=baseline
         await _update_job(scan_id,test_results=evidence)
-        if not baseline.get('cases') or baseline.get('error') or baseline.get('errors'):
+        if (not baseline.get('cases') or not baseline.get('passed') or baseline.get('error') or baseline.get('errors') or not baseline.get('build',{}).get('success')
+                or not baseline.get('test_inputs',{}).get('unchanged')):
+            await _update_job(scan_id,agent_tester=AgentStatus.ERROR)
             await finish(ScanStatus.BLOCKED,'Baseline tests could not run successfully; configure dependencies and Docker before retrying')
             return
-        await stage(ScanStatus.PATCHING,'patcher',30,'FORGE: generating targeted security patches')
+        await _update_job(scan_id,agent_tester=AgentStatus.IDLE)
+        await stage(ScanStatus.PATCHING,'patcher',30,'FORGE: generating targeted security patches',iteration=1)
         generated=await run_patcher(findings,repo_path,scan_id)
         patches=generated['patches']
+        evidence['patch_branch']=generated['branch_name']
         await _update_job(scan_id,agent_patcher=AgentStatus.DONE,patches=patches)
         if not patches:
             await finish(ScanStatus.BLOCKED,'No applicable patch was generated')
             return
         (scan_directory(scan_id)/'patch.diff').write_text(Repo(repo_path).git.diff(),encoding='utf-8')
-        await stage(ScanStatus.REVIEWING,'reviewer',55,'SHIELD: verifying the final source and every applied patch')
-        reviewed=await run_reviewer(patches,findings,scan_id,repo_path,project_root,bundled)
-        notes=reviewed['review_notes']
-        if not notes['all_findings_resolved'] or notes['summary']['rejected']:
-            await emit_pipeline(scan_id,'Security review rejected the first patch; feedback returned to FORGE for one bounded repair',{'review':notes},level='warning')
-            await _update_job(scan_id,agent_patcher=AgentStatus.RUNNING)
-            if await repair_review_findings(repo_path,patches,notes,scan_id):
-                evidence['review_repair_attempts']=1
-                reviewed=await run_reviewer(patches,findings,scan_id,repo_path,project_root,bundled)
-                notes=reviewed['review_notes']
+        for iteration in range(1,max(1,settings.MAX_REPAIR_ROUNDS)+1):
+            await stage(ScanStatus.REVIEWING,'reviewer',55,f'SHIELD: reviewing source and patches — cycle {iteration}',iteration=iteration)
+            reviewed=await run_reviewer(patches,findings,scan_id,repo_path,project_root,bundled)
+            notes=reviewed['review_notes']
+            review_ok=notes['all_findings_resolved'] and not notes['summary']['rejected'] and notes['summary']['approved']==len(patches)
+            await _update_job(scan_id,agent_reviewer=AgentStatus.DONE,review_notes=notes)
+            integrity=compare_manifests(original_manifest,test_manifest(project_root))
+            evidence['test_inputs_unchanged']=integrity['unchanged']
+            evidence['changed_test_inputs']=integrity['changed_test_inputs']
+            if not integrity['unchanged']:
+                await finish(ScanStatus.BLOCKED,'Patch changed baseline tests or configuration; publication blocked')
+                return
+            await stage(ScanStatus.TESTING,'tester',75,f'PROOF: building and testing the patch — cycle {iteration}',iteration=iteration)
+            tested=await run_tester(project_root,patches,scan_id,baseline,bundled,attempt=iteration)
+            evidence.update(tested['test_results'])
+            after=evidence['patched_tests']
+            tests_ok=evidence.get('regression_free') is True and after.get('success') is True
+            evidence['rounds'].append({'iteration':iteration,'review_passed':bool(review_ok),'remaining_findings':len(notes['remaining_findings']),
+                                      'tests_passed':tests_ok,'passed':after.get('passed',0),'failed':after.get('failed',0),
+                                      'errors':after.get('errors',0),'regressions':evidence.get('regressions',[]),
+                                      'build_passed':after.get('build',{}).get('success') is True})
+            await _update_job(scan_id,agent_tester=AgentStatus.DONE,test_results=evidence)
+            if after.get('error') or after.get('test_inputs',{}).get('unchanged') is not True:
+                await finish(ScanStatus.BLOCKED,'Execution unavailable or test inputs changed; publication blocked')
+                return
+            if review_ok and tests_ok:
+                await emit_pipeline(scan_id,f'Cycle {iteration} passed both source review and unchanged tests',{'iteration':iteration})
+                break
+            if iteration>=settings.MAX_REPAIR_ROUNDS:
+                await finish(ScanStatus.BLOCKED,f'Repair budget reached after {iteration} cycles; unresolved evidence retained and no PR published')
+                return
+            await emit_pipeline(scan_id,f'Cycle {iteration} rejected; review and test feedback returned to FORGE',
+                                {'iteration':iteration,'review':notes,'failed_tests':[c['id'] for c in after.get('cases',[]) if c['status']!='passed']},level='warning')
+            await stage(ScanStatus.PATCHING,'patcher',40,f'FORGE: repairing feedback — cycle {iteration+1}',iteration=iteration+1)
+            repaired=False
+            if not review_ok:
+                repaired=await repair_review_findings(repo_path,patches,notes,scan_id)
+                evidence['review_repair_attempts']=evidence.get('review_repair_attempts',0)+1
+            if not tests_ok and (review_ok or not repaired):
+                repaired=await repair_regressions(repo_path,patches,evidence,scan_id) or repaired
+                evidence['repair_attempts']=evidence.get('repair_attempts',0)+1
             await _update_job(scan_id,agent_patcher=AgentStatus.DONE,patches=patches)
-        await _update_job(scan_id,agent_reviewer=AgentStatus.DONE,review_notes=notes,confidence_score=reviewed['confidence_score'])
-        if not notes['all_findings_resolved'] or notes['summary']['rejected'] or notes['summary']['approved']!=len(patches):
-            await finish(ScanStatus.BLOCKED,'Security review rejected the patch set; unresolved findings are in the review report')
+            if not repaired:
+                await finish(ScanStatus.BLOCKED,'FORGE could not generate an applicable feedback repair; publication blocked')
+                return
+        integrity=compare_manifests(original_manifest,test_manifest(project_root))
+        evidence['test_inputs_unchanged']=integrity['unchanged']
+        evidence['changed_test_inputs']=integrity['changed_test_inputs']
+        if not integrity['unchanged']:
+            await finish(ScanStatus.BLOCKED,'Repair changed the baseline test suite or its configuration; publication blocked')
             return
-        await stage(ScanStatus.TESTING,'tester',75,'PROOF: executing patched tests and comparing each baseline result')
-        tested=await run_tester(project_root,patches,scan_id,baseline,bundled)
-        evidence.update(tested['test_results'])
-        if not evidence.get('regression_free') and evidence['patched_tests'].get('cases'):
-            await emit_pipeline(scan_id,'Test feedback returned to FORGE for one bounded repair attempt')
-            if await repair_regressions(repo_path,patches,evidence,scan_id):
-                reviewed=await run_reviewer(patches,findings,scan_id,repo_path,project_root,bundled)
-                notes=reviewed['review_notes']
-                await _update_job(scan_id,review_notes=notes,confidence_score=reviewed['confidence_score'])
-                if notes['all_findings_resolved'] and not notes['summary']['rejected']:
-                    tested=await run_tester(project_root,patches,scan_id,baseline,bundled,attempt=2)
-                    evidence.update(tested['test_results'])
-                    evidence['repair_attempts']=1
-                else:
-                    await finish(ScanStatus.BLOCKED,'Regression repair did not pass the repeated security review')
-                    return
-        await _update_job(scan_id,agent_tester=AgentStatus.DONE,test_results=evidence)
-        if evidence.get('regression_free') is not True or evidence['patched_tests'].get('success') is not True:
-            await finish(ScanStatus.BLOCKED,'Patched test suite failed or lost baseline coverage; publication blocked')
+        if evidence.get('security_tests_count') and not evidence.get('security_tests_passed'):
+            await finish(ScanStatus.BLOCKED,'A collected security check did not pass; publication blocked')
             return
         final_diff=Repo(repo_path).git.diff()
         evidence['changed_lines']=sum(line[:1] in {'+','-'} and not line.startswith(('+++','---')) for line in final_diff.splitlines())
         if evidence['changed_lines']>settings.MAX_TOTAL_CHANGED_LINES:
             await finish(ScanStatus.BLOCKED,'Final patch exceeded the configured diff limit; publication blocked')
             return
-        evidence['verification_score']=20*sum([
+        evidence['verification_score']=round(100*sum([
             notes['all_findings_resolved'],evidence['patched_tests']['success'],evidence['regression_free'],
-            evidence.get('security_tests_passed') is True,evidence['changed_lines']<=settings.MAX_TOTAL_CHANGED_LINES])
+            evidence.get('security_tests_passed') is True,evidence['changed_lines']<=settings.MAX_TOTAL_CHANGED_LINES,
+            all(evidence[key]['build']['success'] for key in ('original_tests','patched_tests')),
+            integrity['unchanged'] and all(evidence[key]['test_inputs']['unchanged'] for key in ('original_tests','patched_tests'))])/7)
+        await stage(ScanStatus.DEPLOYING,'deployer',92,'HERALD: committing the verified patch branch and preparing the draft PR',iteration=iteration)
         if not await commit_patches(repo_path,f'{len(patches)} verified security patches',scan_id,sorted({p['file'] for p in patches})):
             await finish(ScanStatus.FAILED,'Verified patches could not be committed')
             return
@@ -183,12 +230,11 @@ async def _run(scan_id,repo_url,branch,project_path,bundled,publish_pr):
         if bundled or not publish_pr:
             await finish(ScanStatus.COMPLETED,'Verified patch committed. Evidence and patch are ready to download.')
             return
-        active='github'
         await emit_pipeline(scan_id,'HERALD: publishing the verified branch and opening a draft PR',{'progress':95})
         if not await push_branch(repo_path,generated['branch_name'],repo_url,scan_id):
             await finish(ScanStatus.FAILED,'Patch verified, but branch push failed. Download the patch and evidence to recover it.')
             return
-        pr=await create_pull_request(repo_url,generated['branch_name'],description,findings,reviewed['confidence_score'],scan_id,result['branch'])
+        pr=await create_pull_request(repo_url,generated['branch_name'],description,findings,evidence['verification_score'],scan_id,result['branch'])
         if not pr.get('pr_url'):
             await finish(ScanStatus.FAILED,'Branch pushed, but draft PR could not be created')
             return
@@ -198,4 +244,4 @@ async def _run(scan_id,repo_url,branch,project_path,bundled,publish_pr):
     except Exception as exc:
         if active in {'scanner','patcher','reviewer','tester'}:
             await _update_job(scan_id,**{'agent_'+active:AgentStatus.ERROR})
-        await finish(ScanStatus.FAILED,redact(f'{type(exc).__name__}: {exc}'))
+        await finish(ScanStatus.BLOCKED if isinstance(exc,VerificationUnavailable) else ScanStatus.FAILED,redact(f'{type(exc).__name__}: {exc}'))

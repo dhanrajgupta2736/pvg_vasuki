@@ -2,21 +2,27 @@
 
 Hack-a-Night 2026 · Team Soul Celestia
 
-Submit a GitHub repository and watch four specialized agents identify security
+Submit a GitHub repository and watch five specialized agents identify security
 flaws, generate targeted changes, review the final source, and execute unchanged
 tests. A passing run commits the verified source and opens a draft GitHub PR
 with baseline and patched test evidence. A failed gate blocks publication.
 
-**Verified example:** [automatically generated draft PR](https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/1).
-Five consecutive final Oracle runs fixed all three seeded flaws in one repository,
-with **11/11 tests passing**, five exploit checks blocked, and no regressions.
-Mean backend execution was **55.16 seconds** (range 39.79–83.06 seconds).
-One laptop observation took longer because its SSH tunnel disconnected;
-[the full measured timings](docs/demo/rehearsals.json) retain both clocks.
+**Verified example:** [automatically generated draft PR](https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/6).
+The latest Inspect-to-PR browser run completed in **67.73 seconds** on Oracle.
+Five consecutive Oracle rehearsals passed all seven build, test, integrity and
+review checks: **11/11 tests passing**, five exploit checks blocked, and no
+regressions. Mean backend execution was **75.21 seconds** (range
+45.97–96.46 seconds); mean laptop-observed time was **82.64 seconds**.
+[The measured timings](docs/demo/rehearsals.json) retain both clocks, including
+transient SSH polling interruptions. Each observed run finished under two minutes.
 
 [Presentation runbook](docs/presentation-runbook.md) · [offline recorded evidence](docs/demo/offline.html)
 
-Recorded UI walkthrough of the actual completed run and its draft PR:
+Current brutalist UI, connected to the actual Oracle pipeline:
+
+![VASUKI repository intake](docs/demo/brutalist-landing.png)
+
+Earlier recorded UI walkthrough of a completed run and its draft PR:
 
 ![Recorded VASUKI dashboard and PR walkthrough](docs/demo/walkthrough.gif)
 
@@ -31,17 +37,19 @@ The deliberately vulnerable baseline has three real flaws: SQL injection
 checks. The expected result is **6 passing / 5 failing before, 11 passing after**.
 The pipeline edits implementation files, preserving the test suite.
 
-1. Open the dashboard. Start the pipeline with the demo repository URL.
-2. Show the live RECON → FORGE → SHIELD → PROOF activity and event stream.
+1. Open the brutalist dashboard. Enter the demo repository URL and click Inspect.
+2. Watch RECON → PROOF baseline → FORGE → SHIELD → PROOF. Agent panels
+   pop on actual handoffs; failed review or tests return feedback to FORGE.
 3. Inspect the three findings and the generated source diff.
 4. Open Tests to show named before/after results, the Docker runner, and no
    missing or regressed tests.
-5. Open the real draft PR and inspect its commit and executed evidence.
+5. HERALD commits the verified branch and opens a real draft PR. Inspect
+   its commit and executed evidence; a person approves the merge.
 
 Every run has a different scan ID and patch branch. Keep `main` vulnerable for
 repeat demos; merging a draft PR would change the baseline.
 
-The bundled security lab button runs the same fixture without GitHub publication.
+The bundled security lab API (`POST /api/analysis/demo`) runs the same fixture without GitHub publication.
 It is a useful fallback when internet or the container runner is unavailable.
 Its runner is accurately labelled `trusted-bundled-process`; GitHub submissions
 always require Docker and never execute tests on the backend host.
@@ -59,9 +67,9 @@ flowchart LR
     F --> S[SHIELD: final source review]
     S --> P[PROOF: Docker patched tests]
     P --> G{All gates pass?}
-    G -->|yes| PR[Verified commit and draft GitHub PR]
+    G -->|yes| PR[HERALD: verified commit and draft GitHub PR]
     G -->|no| X[Block publication and retain evidence]
-    P -->|test feedback, one attempt| F
+    G -->|review or test feedback, budget remaining| F
 ```
 
 - Source analysis uses auditable Python AST rules for supported SQLite/Flask
@@ -74,16 +82,24 @@ flowchart LR
   each patch. No fabricated model approval or test results are returned.
 - SHIELD repeats source rules, checks syntax, and rejects unresolved or new
   findings. Rule clearance is not a statistical probability of security.
-- PROOF records JUnit cases for both snapshots. Existing passing tests must
+- PROOF builds both snapshots (a wheel for packaged Python projects, syntax
+  compilation for standalone applications) and records JUnit cases. Existing passing tests must
   remain passing, no baseline tests may disappear, and the patched suite must
   exit successfully. Missing suites, failed installs, missing evidence, and
-  unavailable Docker block publication.
-- Reviewer findings and failed test output can each trigger one bounded repair
-  round, followed by repeated source review and a complete test run. Supported
+  unavailable Docker block publication. Fingerprints protect the original test
+  files, fixtures and collection configuration across patching, installation,
+  building and test execution. Duplicate test IDs and newly skipped tests block.
+  The validation score equally weights seven recorded checks; it is not a
+  probability that a repository is secure.
+- Reviewer findings and failed test output return feedback to FORGE. Review and
+  complete test execution repeat until both pass, up to `MAX_REPAIR_ROUNDS`
+  (six cycles by default). An exhausted budget blocks publication. Supported
   AST repairs are labelled explicitly when model feedback remains unverifiable.
 - Docker snapshots exclude credentials and Git metadata. Tests run as UID 1000
   with limited CPU/memory, dropped capabilities, no host mounts, and networking
-  disconnected after dependency installation.
+  disconnected before repository installation, building and testing. The
+  connected preparation phase accepts package requirements and binary wheels;
+  direct dependency URLs, local paths and installer options are rejected.
 - Commits occur only after validation. Push credentials are transient Git
   headers; tokens are never stored in repository remote URLs. Repositories
   without write access are forked before creating a draft PR.
@@ -161,7 +177,10 @@ and patch path boundaries. The vulnerable testbed's five failures are intentiona
 This is a working prototype for supported Python repositories with pytest.
 Native source rules cover specific Flask/SQLite patterns, not every language or
 security flaw. Dependency auditing currently covers explicitly declared Python
-requirements; its availability and failures appear in events. Node projects
+requirements; audit errors and skipped packages block publication. Direct
+package URLs, nested requirements files and source-only dependency installs
+currently block. Python packages with dynamic dependency metadata need explicit
+requirements. Node projects
 currently block when no structured test evidence is available. Source review
 and tests reduce demonstrated risk; a draft PR still requires human review for
 broader correctness. Password hashing, production authentication, unrestricted

@@ -9,14 +9,17 @@ parser=argparse.ArgumentParser()
 parser.add_argument('--url',default='http://127.0.0.1:18000')
 parser.add_argument('--runs',type=int,default=5)
 parser.add_argument('--publish-final',action='store_true')
+parser.add_argument('--repo',default='https://github.com/dhanrajgupta2736/vasuki-security-lab')
+parser.add_argument('--branch')
+parser.add_argument('--output',default='.run/rehearsal.json')
 args=parser.parse_args()
 records=[]
-output=Path(__file__).resolve().parents[1]/'.run/rehearsal.json'
+output=Path(__file__).resolve().parents[1]/args.output
 with httpx.Client(base_url=args.url,timeout=30) as client:
     for i in range(args.runs):
         started=time.monotonic()
         response=client.post('/api/analysis/orchestrated',json={
-            'repo_url':'https://github.com/dhanrajgupta2736/vasuki-security-lab',
+            'repo_url':args.repo,'branch':args.branch,
             'publish_pr':args.publish_final and i==args.runs-1})
         response.raise_for_status()
         scan_id=response.json()['scan_id']

@@ -32,6 +32,9 @@ def test_patch_path_cannot_escape_repo(tmp_path):
 def case(name, status, security=False):
     return {'id': name, 'name': name, 'status': status, 'security': security}
 
+def executed(result):
+    return {**result,'build':{'success':True},'test_inputs':{'unchanged':True}}
+
 @pytest.mark.parametrize('after', [
     {'cases': [], 'success': True},
     {'cases': [case('functional', 'passed')], 'success': True},
@@ -43,8 +46,8 @@ def test_publication_blocks_missing_regressed_or_failed_execution(after):
     assert compare_tests(before, after)['regression_free'] is False
 
 def test_security_fix_preserves_original_behavior():
-    before = {'cases': [case('functional', 'passed'), case('security', 'failed', True)], 'runner': 'docker'}
-    after = {'cases': [case('functional', 'passed'), case('security', 'passed', True)], 'success': True}
+    before = executed({'cases': [case('functional', 'passed'), case('security', 'failed', True)], 'runner': 'docker'})
+    after = executed({'cases': [case('functional', 'passed'), case('security', 'passed', True)], 'success': True})
     result = compare_tests(before, after)
     assert result['regression_free'] is True
     assert result['fixed_tests'] == ['security']
@@ -106,4 +109,4 @@ def test_real_exploits_fail_before_and_pass_after_repairs(tmp_path):
     patched = parse_junit(lab / 'after.xml')
     assert after.returncode == 0, after.stdout.decode(errors='replace')
     assert patched['passed'] == 11
-    assert compare_tests({**baseline, 'runner': 'trusted-test'}, {**patched, 'success': True})['regression_free']
+    assert compare_tests(executed({**baseline, 'runner': 'trusted-test'}), executed({**patched, 'success': True}))['regression_free']

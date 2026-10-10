@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import subprocess
+import ast
 from pathlib import Path
 import httpx
 from git import Repo, Actor
@@ -12,6 +13,8 @@ from core.config import settings
 from core.redis_client import publish_event
 from services.repository import parse_github_url, scan_directory, repo_file
 from services.security_engine import analyze_repo
+from services.security_engine import source_files
+from services.project_validation import VerificationUnavailable,requirement_file
 
 async def emit(scan_id, message, data=None, level='info'):
     await publish_event(scan_id, {'agent':'scanner','message':message,'data':data or {},'level':level})
@@ -47,6 +50,11 @@ async def clone_repo(repo_url, scan_id, branch=None):
     return str(path)
 
 async def run_builtin_sast_scan(repo_path, scan_id):
+    for path in source_files(Path(repo_path).resolve()):
+        try:
+            ast.parse(path.read_text(encoding='utf-8'))
+        except (SyntaxError,UnicodeError) as exc:
+            raise VerificationUnavailable(f'Source analysis could not parse {path.relative_to(repo_path)}: {type(exc).__name__}') from None
     findings = await asyncio.to_thread(analyze_repo, repo_path)
     await emit(scan_id, f'Native AST analysis found {len(findings)} security findings', {'count':len(findings)})
     return findings
@@ -81,28 +89,49 @@ async def run_semgrep(repo_path, scan_id):
 
 async def run_dependency_scan(repo_path, scan_id):
     findings = []
+    advisory_keys={}
     req = Path(repo_path) / 'requirements.txt'
     if req.exists():
+        requirement_file(repo_path)
         if not shutil.which('pip-audit'):
-            await emit(scan_id, 'pip-audit unavailable: dependency audit not performed', level='warning')
-            return []
-        result = await asyncio.to_thread(subprocess.run,
-            ['pip-audit','-r',str(req),'--format','json','--disable-pip','--no-deps'],
-            capture_output=True, text=True, timeout=90)
+            raise VerificationUnavailable('Dependency audit could not run: pip-audit is unavailable')
+        try:
+            result = await asyncio.to_thread(subprocess.run,
+                ['pip-audit','-r',str(req),'--format','json','--disable-pip','--no-deps'],
+                capture_output=True, text=True, timeout=90)
+        except (OSError,subprocess.TimeoutExpired):
+            raise VerificationUnavailable('Dependency audit could not finish within its execution budget') from None
         if result.returncode not in (0,1) or not result.stdout.strip():
-            await emit(scan_id, 'Dependency audit failed; source findings remain available', level='warning')
-            return []
-        data = json.loads(result.stdout)
+            raise VerificationUnavailable('Dependency audit did not complete. Check advisory connectivity and use explicitly pinned requirement versions.')
+        try:
+            data = json.loads(result.stdout)
+        except (ValueError,TypeError):
+            raise VerificationUnavailable('Dependency audit returned an invalid report') from None
+        if not isinstance(data,dict) or not isinstance(data.get('dependencies'),list):
+            raise VerificationUnavailable('Dependency audit returned no dependency evidence')
         for dep in data.get('dependencies', []):
+            if not isinstance(dep,dict) or not all(key in dep for key in ('name','version','vulns')):
+                raise VerificationUnavailable('Dependency audit returned an incomplete package record')
+            if dep.get('skip_reason'):
+                raise VerificationUnavailable('Dependency audit skipped a declared package; complete coverage is required for publication')
             for vuln in dep.get('vulns', []):
                 aliases = [a for a in vuln.get('aliases', []) if a.startswith('CVE-')]
                 versions = vuln.get('fix_versions', [])
+                key=(dep['name'].lower(),dep['version'],tuple(sorted(aliases)) or (vuln['id'],))
+                if key in advisory_keys:
+                    prior=advisory_keys[key]
+                    prior['fix_versions']=sorted(set(prior['fix_versions'])|set(versions))
+                    prior['advisory_ids'].append(vuln['id'])
+                    continue
                 findings.append({'id':f"dependency:{dep['name']}:{vuln['id']}",'rule_id':vuln['id'],
-                    'file':'requirements.txt','line_start':0,'line_end':0,'severity':'HIGH','category':'dependency',
+                    'file':'requirements.txt','line_start':0,'line_end':0,'severity':'UNKNOWN','category':'dependency',
                     'package':dep['name'],'version':dep['version'],'fix_versions':versions,
                     'cve_id':aliases[0] if aliases else None,'message':vuln.get('description','Dependency advisory'),
                     'code_snippet':f"{dep['name']}=={dep['version']}",'source':'pip-audit',
-                    'fix_suggestion':'Upgrade to ' + (versions[0] if versions else 'no known fix')})
+                    'fix_suggestion':'Upgrade to ' + (versions[0] if versions else 'no known fix'),
+                    'advisory_ids':[vuln['id']],'aliases':vuln.get('aliases',[])})
+                advisory_keys[key]=findings[-1]
+        await emit(scan_id,'Dependency advisory audit completed',{'declared_packages':len(data['dependencies']),'findings':len(findings),'scope':'explicitly declared pinned requirements'})
     return findings
 
 async def run_scanner(repo_url, scan_id, branch=None, project_path='', bundled=False):
@@ -131,6 +160,7 @@ async def run_scanner(repo_url, scan_id, branch=None, project_path='', bundled=F
     await emit(scan_id, f'RECON complete: {len(findings)} findings at commit {repo.head.commit.hexsha[:8]}')
     return {'repo_path':repo_path,'project_root':str(project_root),'vulnerabilities':findings,
             'blast_radius':sorted({f['file'] for f in findings}),'base_sha':repo.head.commit.hexsha,
+            'dependency_audit':{'status':'passed' if not bundled and (project_root/'requirements.txt').exists() else 'not_applicable','scope':'explicitly declared pinned requirements'},
             'branch':repo.active_branch.name}
 
 def _extract_category(rule):

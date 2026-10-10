@@ -22,7 +22,8 @@ class AnalysisRequest(BaseModel):
     publish_pr:bool=True
 
 async def _submit(db,tasks,url,branch=None,project_path='',bundled=False,publish_pr=True):
-    job=ScanJob(repo_url=url,branch=branch or '',status=ScanStatus.PENDING)
+    job=ScanJob(repo_url=url,branch=branch or '',status=ScanStatus.PENDING,
+                test_results={'project_path':project_path,'publish_pr':publish_pr})
     db.add(job)
     await db.commit()
     await db.refresh(job)
@@ -67,7 +68,8 @@ async def start_orchestrated(req:AnalysisRequest):
 @router.get('/')
 async def list_scans(db:AsyncSession=Depends(get_db),limit:int=Query(default=20,ge=1,le=100)):
     result=await db.execute(select(ScanJob).order_by(ScanJob.created_at.desc()).limit(limit))
-    return [{'scan_id':j.id,'repo_url':j.repo_url,'status':j.status,'confidence_score':j.confidence_score,
+    return [{'scan_id':j.id,'repo_url':j.repo_url,'branch':j.branch,'project_path':(j.test_results or {}).get('project_path',''),
+             'status':j.status,'confidence_score':j.confidence_score,
              'vuln_count':len(j.vulnerabilities or []),'pr_url':j.pr_url,'created_at':j.created_at.isoformat()} for j in result.scalars()]
 
 @router.get('/{scan_id}')
@@ -77,7 +79,8 @@ async def get_scan_status(scan_id:str,db:AsyncSession=Depends(get_db)):
         raise HTTPException(404,'Scan not found')
     return {'scan_id':job.id,'repo_url':job.repo_url,'branch':job.branch,'status':job.status,
         'server_time':datetime.now(timezone.utc).isoformat(),
-        'agents':{a:getattr(job,'agent_'+a) for a in ['scanner','patcher','reviewer','tester']},
+        'agents':{**{a:getattr(job,'agent_'+a) for a in ['scanner','patcher','reviewer','tester']},
+                  'deployer':(job.test_results or {}).get('delivery',{}).get('status','idle')},
         'vulnerabilities':job.vulnerabilities,'patches':job.patches,'review_notes':job.review_notes,
         'test_results':job.test_results,'confidence_score':job.confidence_score,'blast_radius':job.blast_radius,
         'pr_url':job.pr_url,'pr_number':job.pr_number,'error_message':job.error_message,

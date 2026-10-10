@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     DOCKER_SANDBOX_IMAGE: str = "python:3.11-slim"
     ARTIFACTS_DIR: str = str(BACKEND_DIR / "artifacts")
     MAX_PATCHES: int = 10
+    MAX_REPAIR_ROUNDS: int = 6
     MAX_PATCH_CHANGED_LINES: int = 120
     MAX_TOTAL_CHANGED_LINES: int = 200
     MAX_PATCH_CHANGE_RATIO: float = 0.65

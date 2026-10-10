@@ -1,0 +1,582 @@
+{
+  "scan_id": "d8ece508-b8dc-4e4a-b942-34652ed1ac68",
+  "repo_url": "https://github.com/dhanrajgupta2736/vasuki-security-lab",
+  "branch": "release/v0.1",
+  "status": "completed",
+  "server_time": "2026-10-10T00:50:47.574544+00:00",
+  "agents": {
+    "scanner": "done",
+    "patcher": "done",
+    "reviewer": "done",
+    "tester": "done"
+  },
+  "vulnerabilities": [
+    {
+      "id": "python-dynamic-sql:app.py:41",
+      "rule_id": "python-dynamic-sql",
+      "file": "app.py",
+      "line_start": 41,
+      "line_end": 41,
+      "severity": "CRITICAL",
+      "category": "sql-injection",
+      "cwe_id": "CWE-89",
+      "cve_id": null,
+      "message": "A dynamically formatted SQL string reaches the database execution call.",
+      "source": "native-ast",
+      "code_snippet": "cursor.execute(query)"
+    },
+    {
+      "id": "flask-path-boundary:app.py:58",
+      "rule_id": "flask-path-boundary",
+      "file": "app.py",
+      "line_start": 58,
+      "line_end": 58,
+      "severity": "HIGH",
+      "category": "path-traversal",
+      "cwe_id": "CWE-22",
+      "cve_id": null,
+      "message": "A request handler opens a joined path without checking the resolved directory boundary.",
+      "source": "native-ast",
+      "code_snippet": "open(file_path, \"r\", encoding=\"utf-8\")"
+    },
+    {
+      "id": "flask-object-authorization:app.py:67",
+      "rule_id": "flask-object-authorization",
+      "file": "app.py",
+      "line_start": 67,
+      "line_end": 67,
+      "severity": "HIGH",
+      "category": "broken-access-control",
+      "cwe_id": "CWE-639",
+      "cve_id": null,
+      "message": "A user object is fetched using a route ID without a session ownership check.",
+      "source": "native-ast",
+      "code_snippet": "cursor.execute(\"SELECT id, username FROM users WHERE id = ?\", (user_id,))"
+    },
+    {
+      "id": "dependency:jinja2:PYSEC-2026-1471",
+      "rule_id": "PYSEC-2026-1471",
+      "file": "requirements.txt",
+      "line_start": 0,
+      "line_end": 0,
+      "severity": "UNKNOWN",
+      "category": "dependency",
+      "package": "jinja2",
+      "version": "3.1.5",
+      "fix_versions": [
+        "3.1.6"
+      ],
+      "cve_id": "CVE-2025-27516",
+      "message": "An oversight in how the Jinja sandboxed environment interacts with the `|attr` filter allows an attacker that controls the content of a template to execute arbitrary Python code.  To exploit the vulnerability, an attacker needs to control the content of a template. Whether that is the case depends on the type of application using Jinja. This vulnerability impacts users of applications which execute untrusted templates.  Jinja's sandbox does catch calls to `str.format` and ensures they don't escape the sandbox. However, it's possible to use the `|attr` filter to get a reference to a string's plain format method, bypassing the sandbox. After the fix, the `|attr` filter no longer bypasses the environment's attribute lookup.",
+      "code_snippet": "jinja2==3.1.5",
+      "source": "pip-audit",
+      "fix_suggestion": "Upgrade to 3.1.6",
+      "advisory_ids": [
+        "PYSEC-2026-1471",
+        "PYSEC-2026-1471"
+      ],
+      "aliases": [
+        "GHSA-cpwx-vrp4-4pq7",
+        "CVE-2025-27516"
+      ]
+    }
+  ],
+  "patches": [
+    {
+      "vulnerability_id": "python-dynamic-sql:app.py:41",
+      "file": "app.py",
+      "category": "sql-injection",
+      "cve_id": null,
+      "cwe_id": "CWE-89",
+      "severity": "CRITICAL",
+      "diff": "--- a/app.py\n+++ b/app.py\n@@ -36,9 +36,9 @@\n     password = data.get(\"password\", \"\")\n \n     # VULNERABILITY 1: SQL Injection via string formatting\n-    query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'\"\n+    query = 'SELECT * FROM users WHERE username = ? AND password = ?'\n     cursor = db.cursor()\n-    cursor.execute(query)\n+    cursor.execute(query, (username, password,))\n     user = cursor.fetchone()\n \n     if user:\n",
+      "applied": true,
+      "model_used": "native-ast-repair",
+      "rationale": "A dynamically formatted SQL string reaches the database execution call.",
+      "final_diff": "diff --git a/app.py b/app.py\nindex a7d91e3..eb3ab58 100644\n--- a/app.py\n+++ b/app.py\n@@ -36,9 +36,9 @@ def login():\n     password = data.get(\"password\", \"\")\n \n     # VULNERABILITY 1: SQL Injection via string formatting\n-    query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'\"\n+    query = 'SELECT * FROM users WHERE username = ? AND password = ?'\n     cursor = db.cursor()\n-    cursor.execute(query)\n+    cursor.execute(query, (username, password,))\n     user = cursor.fetchone()\n \n     if user:\n@@ -54,6 +54,15 @@ def get_document(filename=None):\n     # VULNERABILITY 2: Path Traversal\n     target = filename or request.args.get(\"file\", \"\")\n     file_path = os.path.join(UPLOAD_DIR, target)\n+\n+    # Fix: Check if the resolved path is within the UPLOAD_DIR\n+    # Use realpath and commonpath to resolve any '..' or symlinks and ensure boundary\n+    abs_upload_dir = os.path.realpath(UPLOAD_DIR)\n+    abs_file_path = os.path.realpath(file_path)\n+\n+    if os.path.commonpath([abs_upload_dir, abs_file_path]) != abs_upload_dir:\n+        return jsonify({\"error\": \"Access denied\"}), 403\n+\n     if target and os.path.exists(file_path):\n         with open(file_path, \"r\", encoding=\"utf-8\") as f:\n             return jsonify({\"content\": f.read()}), 200\n@@ -63,6 +72,11 @@ def get_document(filename=None):\n @app.route(\"/api/profile/<int:user_id>\", methods=[\"GET\"])\n def get_profile(user_id):\n     # VULNERABILITY 3: Broken Access Control (IDOR)\n+    if \"user_id\" not in session:\n+        return jsonify({\"error\": \"Unauthorized\"}), 401\n+    if session[\"user_id\"] != user_id:\n+        return jsonify({\"error\": \"Forbidden\"}), 403\n+\n     cursor = db.cursor()\n     cursor.execute(\"SELECT id, username FROM users WHERE id = ?\", (user_id,))\n     user = cursor.fetchone()"
+    },
+    {
+      "vulnerability_id": "flask-path-boundary:app.py:58",
+      "file": "app.py",
+      "category": "path-traversal",
+      "cve_id": null,
+      "cwe_id": "CWE-22",
+      "severity": "HIGH",
+      "diff": "--- a/app.py\n+++ b/app.py\n@@ -54,6 +54,15 @@\n     # VULNERABILITY 2: Path Traversal\n     target = filename or request.args.get(\"file\", \"\")\n     file_path = os.path.join(UPLOAD_DIR, target)\n+\n+    # Fix: Check if the resolved path is within the UPLOAD_DIR\n+    # Use realpath to resolve any '..' or symlinks\n+    abs_upload_dir = os.path.realpath(UPLOAD_DIR)\n+    abs_file_path = os.path.realpath(file_path)\n+\n+    if not abs_file_path.startswith(abs_upload_dir + os.sep) and abs_file_path != abs_upload_dir:\n+        return jsonify({\"error\": \"Access denied\"}), 403\n+\n     if target and os.path.exists(file_path):\n         with open(file_path, \"r\", encoding=\"utf-8\") as f:\n             return jsonify({\"content\": f.read()}), 200\n",
+      "applied": true,
+      "model_used": "oci/google.gemini-2.5-flash",
+      "rationale": "A request handler opens a joined path without checking the resolved directory boundary.",
+      "final_diff": "diff --git a/app.py b/app.py\nindex a7d91e3..eb3ab58 100644\n--- a/app.py\n+++ b/app.py\n@@ -36,9 +36,9 @@ def login():\n     password = data.get(\"password\", \"\")\n \n     # VULNERABILITY 1: SQL Injection via string formatting\n-    query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'\"\n+    query = 'SELECT * FROM users WHERE username = ? AND password = ?'\n     cursor = db.cursor()\n-    cursor.execute(query)\n+    cursor.execute(query, (username, password,))\n     user = cursor.fetchone()\n \n     if user:\n@@ -54,6 +54,15 @@ def get_document(filename=None):\n     # VULNERABILITY 2: Path Traversal\n     target = filename or request.args.get(\"file\", \"\")\n     file_path = os.path.join(UPLOAD_DIR, target)\n+\n+    # Fix: Check if the resolved path is within the UPLOAD_DIR\n+    # Use realpath and commonpath to resolve any '..' or symlinks and ensure boundary\n+    abs_upload_dir = os.path.realpath(UPLOAD_DIR)\n+    abs_file_path = os.path.realpath(file_path)\n+\n+    if os.path.commonpath([abs_upload_dir, abs_file_path]) != abs_upload_dir:\n+        return jsonify({\"error\": \"Access denied\"}), 403\n+\n     if target and os.path.exists(file_path):\n         with open(file_path, \"r\", encoding=\"utf-8\") as f:\n             return jsonify({\"content\": f.read()}), 200\n@@ -63,6 +72,11 @@ def get_document(filename=None):\n @app.route(\"/api/profile/<int:user_id>\", methods=[\"GET\"])\n def get_profile(user_id):\n     # VULNERABILITY 3: Broken Access Control (IDOR)\n+    if \"user_id\" not in session:\n+        return jsonify({\"error\": \"Unauthorized\"}), 401\n+    if session[\"user_id\"] != user_id:\n+        return jsonify({\"error\": \"Forbidden\"}), 403\n+\n     cursor = db.cursor()\n     cursor.execute(\"SELECT id, username FROM users WHERE id = ?\", (user_id,))\n     user = cursor.fetchone()"
+    },
+    {
+      "vulnerability_id": "flask-object-authorization:app.py:67",
+      "file": "app.py",
+      "category": "broken-access-control",
+      "cve_id": null,
+      "cwe_id": "CWE-639",
+      "severity": "HIGH",
+      "diff": "--- a/app.py\n+++ b/app.py\n@@ -72,6 +72,11 @@\n @app.route(\"/api/profile/<int:user_id>\", methods=[\"GET\"])\n def get_profile(user_id):\n     # VULNERABILITY 3: Broken Access Control (IDOR)\n+    if \"user_id\" not in session:\n+        return jsonify({\"error\": \"Unauthorized\"}), 401\n+    if session[\"user_id\"] != user_id:\n+        return jsonify({\"error\": \"Forbidden\"}), 403\n+\n     cursor = db.cursor()\n     cursor.execute(\"SELECT id, username FROM users WHERE id = ?\", (user_id,))\n     user = cursor.fetchone()\n",
+      "applied": true,
+      "model_used": "oci/google.gemini-2.5-flash",
+      "rationale": "A user object is fetched using a route ID without a session ownership check.",
+      "final_diff": "diff --git a/app.py b/app.py\nindex a7d91e3..eb3ab58 100644\n--- a/app.py\n+++ b/app.py\n@@ -36,9 +36,9 @@ def login():\n     password = data.get(\"password\", \"\")\n \n     # VULNERABILITY 1: SQL Injection via string formatting\n-    query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'\"\n+    query = 'SELECT * FROM users WHERE username = ? AND password = ?'\n     cursor = db.cursor()\n-    cursor.execute(query)\n+    cursor.execute(query, (username, password,))\n     user = cursor.fetchone()\n \n     if user:\n@@ -54,6 +54,15 @@ def get_document(filename=None):\n     # VULNERABILITY 2: Path Traversal\n     target = filename or request.args.get(\"file\", \"\")\n     file_path = os.path.join(UPLOAD_DIR, target)\n+\n+    # Fix: Check if the resolved path is within the UPLOAD_DIR\n+    # Use realpath and commonpath to resolve any '..' or symlinks and ensure boundary\n+    abs_upload_dir = os.path.realpath(UPLOAD_DIR)\n+    abs_file_path = os.path.realpath(file_path)\n+\n+    if os.path.commonpath([abs_upload_dir, abs_file_path]) != abs_upload_dir:\n+        return jsonify({\"error\": \"Access denied\"}), 403\n+\n     if target and os.path.exists(file_path):\n         with open(file_path, \"r\", encoding=\"utf-8\") as f:\n             return jsonify({\"content\": f.read()}), 200\n@@ -63,6 +72,11 @@ def get_document(filename=None):\n @app.route(\"/api/profile/<int:user_id>\", methods=[\"GET\"])\n def get_profile(user_id):\n     # VULNERABILITY 3: Broken Access Control (IDOR)\n+    if \"user_id\" not in session:\n+        return jsonify({\"error\": \"Unauthorized\"}), 401\n+    if session[\"user_id\"] != user_id:\n+        return jsonify({\"error\": \"Forbidden\"}), 403\n+\n     cursor = db.cursor()\n     cursor.execute(\"SELECT id, username FROM users WHERE id = ?\", (user_id,))\n     user = cursor.fetchone()"
+    },
+    {
+      "vulnerability_id": "dependency:jinja2:PYSEC-2026-1471",
+      "file": "requirements.txt",
+      "category": "dependency",
+      "cve_id": "CVE-2025-27516",
+      "cwe_id": null,
+      "severity": "UNKNOWN",
+      "diff": "--- a/requirements.txt\n+++ b/requirements.txt\n@@ -1,3 +1,3 @@\n flask==3.1.3\n pytest==9.1.1\n-Jinja2==3.1.5\n+jinja2==3.1.6\n",
+      "applied": true,
+      "model_used": "advisory-version-bump",
+      "rationale": "Upgrade jinja2 from 3.1.5 to 3.1.6 using the advisory fix version",
+      "final_diff": "diff --git a/requirements.txt b/requirements.txt\nindex e45ef59..f24eb89 100644\n--- a/requirements.txt\n+++ b/requirements.txt\n@@ -1,3 +1,3 @@\n flask==3.1.3\n pytest==9.1.1\n-Jinja2==3.1.5\n+jinja2==3.1.6"
+    }
+  ],
+  "review_notes": {
+    "individual_reviews": [
+      {
+        "patch_id": "python-dynamic-sql:app.py:41",
+        "file": "app.py",
+        "patch_fixes_vuln": true,
+        "introduces_new_vulns": false,
+        "confidence_score": 100,
+        "recommendation": "approve",
+        "logic_break_risk": "pending-test-verification",
+        "reasoning": "Target rule no longer matches; syntax passes. Runtime proof is required.",
+        "semgrep_result": "Re-scan passed"
+      },
+      {
+        "patch_id": "flask-path-boundary:app.py:58",
+        "file": "app.py",
+        "patch_fixes_vuln": true,
+        "introduces_new_vulns": false,
+        "confidence_score": 100,
+        "recommendation": "approve",
+        "logic_break_risk": "pending-test-verification",
+        "reasoning": "Target rule no longer matches; syntax passes. Runtime proof is required.",
+        "semgrep_result": "Re-scan passed"
+      },
+      {
+        "patch_id": "flask-object-authorization:app.py:67",
+        "file": "app.py",
+        "patch_fixes_vuln": true,
+        "introduces_new_vulns": false,
+        "confidence_score": 100,
+        "recommendation": "approve",
+        "logic_break_risk": "pending-test-verification",
+        "reasoning": "Target rule no longer matches; syntax passes. Runtime proof is required.",
+        "semgrep_result": "Re-scan passed"
+      },
+      {
+        "patch_id": "dependency:jinja2:PYSEC-2026-1471",
+        "file": "requirements.txt",
+        "patch_fixes_vuln": true,
+        "introduces_new_vulns": false,
+        "confidence_score": 100,
+        "recommendation": "approve",
+        "logic_break_risk": "pending-test-verification",
+        "reasoning": "Target rule no longer matches; syntax passes. Runtime proof is required.",
+        "semgrep_result": "Re-scan passed"
+      }
+    ],
+    "summary": {
+      "approved": 4,
+      "rejected": 0,
+      "total_reviewed": 4
+    },
+    "remaining_findings": [],
+    "new_findings": [],
+    "syntax_errors": [],
+    "all_findings_resolved": true
+  },
+  "test_results": {
+    "source": "github",
+    "project_path": "",
+    "publish_pr": true,
+    "base_sha": "33ccd2f2bf2effe03dfb54c9b37027cd5e45e9ac",
+    "branch": "release/v0.1",
+    "dependency_audit": {
+      "status": "passed",
+      "scope": "explicitly declared pinned requirements"
+    },
+    "scanner": "native-ast",
+    "original_tests": {
+      "passed": 7,
+      "failed": 6,
+      "errors": 0,
+      "skipped": 0,
+      "total": 13,
+      "cases": [
+        {
+          "id": "tests.test_app::test_login_valid",
+          "name": "test_login_valid",
+          "status": "passed",
+          "duration": 0.009,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_login_invalid",
+          "name": "test_login_invalid",
+          "status": "passed",
+          "duration": 0.002,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_profile_lookup",
+          "name": "test_profile_lookup",
+          "status": "passed",
+          "duration": 0.003,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_nonexistent_profile",
+          "name": "test_nonexistent_profile",
+          "status": "passed",
+          "duration": 0.004,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_sqli_auth_bypass_blocked",
+          "name": "test_sqli_auth_bypass_blocked",
+          "status": "failed",
+          "duration": 0.003,
+          "security": true,
+          "message": "AssertionError: SECURITY REGRESSION: SQL injection authentication bypass succeeded!\nassert 200 == 401\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_path_traversal_exploit_blocked",
+          "name": "test_path_traversal_exploit_blocked",
+          "status": "failed",
+          "duration": 0.002,
+          "security": true,
+          "message": "AssertionError: SECURITY REGRESSION: Path traversal escaped root directory and read source file!\nassert 200 in (400, 403, 404)\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_idor_anonymous_access_blocked",
+          "name": "test_idor_anonymous_access_blocked",
+          "status": "failed",
+          "duration": 0.052,
+          "security": true,
+          "message": "assert 200 == 401\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_idor_cross_user_access_blocked",
+          "name": "test_idor_cross_user_access_blocked",
+          "status": "failed",
+          "duration": 0.003,
+          "security": true,
+          "message": "assert 200 == 403\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_owner_profile_access_preserved",
+          "name": "test_owner_profile_access_preserved",
+          "status": "passed",
+          "duration": 0.003,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_path_traversal_absolute_path_blocked",
+          "name": "test_path_traversal_absolute_path_blocked",
+          "status": "failed",
+          "duration": 0.002,
+          "security": true,
+          "message": "assert 200 in (400, 403, 404)\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_document_read_preserved",
+          "name": "test_document_read_preserved",
+          "status": "passed",
+          "duration": 0.002,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_templates::test_template_normal_rendering",
+          "name": "test_template_normal_rendering",
+          "status": "passed",
+          "duration": 0.003,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_templates::test_security_template_attr_filter_cannot_disclose_private_class",
+          "name": "test_security_template_attr_filter_cannot_disclose_private_class",
+          "status": "failed",
+          "duration": 0.057,
+          "security": true,
+          "message": "assert \"a<class 'int'>b\" == 'ab'\n  \n  - ab\n  + a<class 'int'>b"
+        }
+      ],
+      "sandbox": {
+        "container_id": "fc297c65f8e13784f572cd3414a0c01c719362f045ee3fac705edded4d2d183e",
+        "user": "1000:1000",
+        "network_connections": [],
+        "memory_bytes": 536870912,
+        "nano_cpus": 500000000,
+        "pids_limit": 128,
+        "cap_drop": [
+          "ALL"
+        ],
+        "security_options": [
+          "no-new-privileges:true"
+        ],
+        "host_mounts": []
+      },
+      "build": {
+        "kind": "python-wheel",
+        "command": [
+          "python",
+          "-I",
+          "/tmp/vasuki-controller.py",
+          "wheel",
+          "/tmp/repo"
+        ],
+        "exit_code": 0,
+        "success": true,
+        "output": "* Getting build dependencies for wheel...\nVerified offline repository installation and build: loopback only, non-root user\nrunning egg_info\nwriting vasuki_security_lab.egg-info/PKG-INFO\nwriting dependency_links to vasuki_security_lab.egg-info/dependency_links.txt\nwriting requirements to vasuki_security_lab.egg-info/requires.txt\nwriting top-level names to vasuki_security_lab.egg-info/top_level.txt\nreading manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\nwriting manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\n* Building wheel...\nVerified offline repository installation and build: loopback only, non-root user\nrunning bdist_wheel\nrunning build\nrunning build_py\nrunning egg_info\nwriting vasuki_security_lab.egg-info/PKG-INFO\nwriting dependency_links to vasuki_security_lab.egg-info/dependency_links.txt\nwriting requirements to vasuki_security_lab.egg-info/requires.txt\nwriting top-level names to vasuki_security_lab.egg-info/top_level.txt\nreading manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\nwriting manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\nwarning: build_py: byte-compiling is disabled, skipping.\n\ninstalling to build/bdist.linux-x86_64/wheel\nrunning install\nrunning install_lib\ncreating build/bdist.linux-x86_64/wheel\ncopying build/lib/app.py -> build/bdist.linux-x86_64/wheel/.\ncopying build/lib/templating.py -> build/bdist.linux-x86_64/wheel/.\nrunning install_egg_info\nwarning: install_lib: byte-compiling is disabled, skipping.\n\nCopying vasuki_security_lab.egg-info to build/bdist.linux-x86_64/wheel/./vasuki_security_lab-0.1.0-py3.11.egg-info\nrunning install_scripts\ncreating build/bdist.linux-x86_64/wheel/vasuki_security_lab-0.1.0.dist-info/WHEEL\ncreating '/tmp/vasuki-dist/.tmp-a_vgsby6/vasuki_security_lab-0.1.0-py3-none-any.whl' and adding 'build/bdist.linux-x86_64/wheel' to it\nadding 'app.py'\nadding 'templating.py'\nadding 'vasuki_security_lab-0.1.0.dist-info/METADATA'\nadding 'vasuki_security_lab-0.1.0.dist-info/WHEEL'\nadding 'vasuki_security_lab-0.1.0.dist-info/top_level.txt'\nadding 'vasuki_security_lab-0.1.0.dist-info/RECORD'\nremoving build/bdist.linux-x86_64/wheel\nSuccessfully built vasuki_security_lab-0.1.0-py3-none-any.whl\nWheel artifact: vasuki_security_lab-0.1.0-py3-none-any.whl \u00b7 sha256 87468caf312060593c5b39cd83d6e1b4abcc189f77ab5f9f794f0420478770ca\n",
+        "duration_seconds": 3.15
+      },
+      "test_inputs": {
+        "unchanged": true,
+        "changed_test_inputs": []
+      },
+      "test_manifest": {
+        "files": {
+          "tests/test_app.py": "9fa6474f401b12bb74cf07ebc575b78c00143759711fba53be75250372e3ba10",
+          "tests/test_templates.py": "d0bc46dc15e22351d57487ca980b0516a5c38e24d9fd0cd6f7d8f82aadc1b524"
+        },
+        "configuration": {
+          "pyproject.toml": {
+            "pytest": null
+          }
+        }
+      },
+      "success": false,
+      "has_tests": true,
+      "label": "baseline",
+      "runner": "docker",
+      "exit_code": 1,
+      "output": "....FFFF.F..F                                                            [100%]\n=================================== FAILURES ===================================\n________________________ test_sqli_auth_bypass_blocked _________________________\ntests/test_app.py:53: in test_sqli_auth_bypass_blocked\n    assert res.status_code == 401, \"SECURITY REGRESSION: SQL injection authentication bypass succeeded!\"\nE   AssertionError: SECURITY REGRESSION: SQL injection authentication bypass succeeded!\nE   assert 200 == 401\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n_____________________ test_path_traversal_exploit_blocked ______________________\ntests/test_app.py:63: in test_path_traversal_exploit_blocked\n    assert res.status_code in (400, 403, 404), \"SECURITY REGRESSION: Path traversal escaped root directory and read source file!\"\nE   AssertionError: SECURITY REGRESSION: Path traversal escaped root directory and read source file!\nE   assert 200 in (400, 403, 404)\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n______________________ test_idor_anonymous_access_blocked ______________________\ntests/test_app.py:68: in test_idor_anonymous_access_blocked\n    assert res.status_code == 401\nE   assert 200 == 401\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n_____________________ test_idor_cross_user_access_blocked ______________________\ntests/test_app.py:74: in test_idor_cross_user_access_blocked\n    assert res.status_code == 403\nE   assert 200 == 403\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n__________________ test_path_traversal_absolute_path_blocked ___________________\ntests/test_app.py:87: in test_path_traversal_absolute_path_blocked\n    assert res.status_code in (400, 403, 404)\nE   assert 200 in (400, 403, 404)\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n_______ test_security_template_attr_filter_cannot_disclose_private_class _______\ntests/test_templates.py:13: in test_security_template_attr_filter_cannot_disclose_private_class\n    assert render_template(payload, 42) == \"ab\"\nE   assert \"a<class 'int'>b\" == 'ab'\nE     \nE     - ab\nE     + a<class 'int'>b\n=========================== short test summary info ============================\nFAILED tests/test_app.py::test_sqli_auth_bypass_blocked - AssertionError: SEC...\nFAILED tests/test_app.py::test_path_traversal_exploit_blocked - AssertionErro...\nFAILED tests/test_app.py::test_idor_anonymous_access_blocked - assert 200 == 401\nFAILED tests/test_app.py::test_idor_cross_user_access_blocked - assert 200 ==...\nFAILED tests/test_app.py::test_path_traversal_absolute_path_blocked - assert ...\nFAILED tests/test_templates.py::test_security_template_attr_filter_cannot_disclose_private_class\n6 failed, 7 passed in 0.79s\n",
+      "duration_seconds": 45.69
+    },
+    "review_repair_attempts": 1,
+    "test_inputs_unchanged": true,
+    "changed_test_inputs": [],
+    "patched_tests": {
+      "passed": 13,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "total": 13,
+      "cases": [
+        {
+          "id": "tests.test_app::test_login_valid",
+          "name": "test_login_valid",
+          "status": "passed",
+          "duration": 0.093,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_login_invalid",
+          "name": "test_login_invalid",
+          "status": "passed",
+          "duration": 0.005,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_profile_lookup",
+          "name": "test_profile_lookup",
+          "status": "passed",
+          "duration": 0.005,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_nonexistent_profile",
+          "name": "test_nonexistent_profile",
+          "status": "passed",
+          "duration": 0.004,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_sqli_auth_bypass_blocked",
+          "name": "test_sqli_auth_bypass_blocked",
+          "status": "passed",
+          "duration": 0.073,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_path_traversal_exploit_blocked",
+          "name": "test_path_traversal_exploit_blocked",
+          "status": "passed",
+          "duration": 0.002,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_idor_anonymous_access_blocked",
+          "name": "test_idor_anonymous_access_blocked",
+          "status": "passed",
+          "duration": 0.001,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_idor_cross_user_access_blocked",
+          "name": "test_idor_cross_user_access_blocked",
+          "status": "passed",
+          "duration": 0.003,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_owner_profile_access_preserved",
+          "name": "test_owner_profile_access_preserved",
+          "status": "passed",
+          "duration": 0.008,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_path_traversal_absolute_path_blocked",
+          "name": "test_path_traversal_absolute_path_blocked",
+          "status": "passed",
+          "duration": 0.002,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_document_read_preserved",
+          "name": "test_document_read_preserved",
+          "status": "passed",
+          "duration": 0.002,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_templates::test_template_normal_rendering",
+          "name": "test_template_normal_rendering",
+          "status": "passed",
+          "duration": 0.076,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_templates::test_security_template_attr_filter_cannot_disclose_private_class",
+          "name": "test_security_template_attr_filter_cannot_disclose_private_class",
+          "status": "passed",
+          "duration": 0.006,
+          "security": true,
+          "message": ""
+        }
+      ],
+      "sandbox": {
+        "container_id": "9989fd8e1dc55a81283d3b6c89d69baa41f495f0f25998d59bba66fd0f6e9d25",
+        "user": "1000:1000",
+        "network_connections": [],
+        "memory_bytes": 536870912,
+        "nano_cpus": 500000000,
+        "pids_limit": 128,
+        "cap_drop": [
+          "ALL"
+        ],
+        "security_options": [
+          "no-new-privileges:true"
+        ],
+        "host_mounts": []
+      },
+      "build": {
+        "kind": "python-wheel",
+        "command": [
+          "python",
+          "-I",
+          "/tmp/vasuki-controller.py",
+          "wheel",
+          "/tmp/repo"
+        ],
+        "exit_code": 0,
+        "success": true,
+        "output": "* Getting build dependencies for wheel...\nVerified offline repository installation and build: loopback only, non-root user\nrunning egg_info\nwriting vasuki_security_lab.egg-info/PKG-INFO\nwriting dependency_links to vasuki_security_lab.egg-info/dependency_links.txt\nwriting requirements to vasuki_security_lab.egg-info/requires.txt\nwriting top-level names to vasuki_security_lab.egg-info/top_level.txt\nreading manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\nwriting manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\n* Building wheel...\nVerified offline repository installation and build: loopback only, non-root user\nrunning bdist_wheel\nrunning build\nrunning build_py\nrunning egg_info\nwriting vasuki_security_lab.egg-info/PKG-INFO\nwriting dependency_links to vasuki_security_lab.egg-info/dependency_links.txt\nwriting requirements to vasuki_security_lab.egg-info/requires.txt\nwriting top-level names to vasuki_security_lab.egg-info/top_level.txt\nreading manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\nwriting manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\nwarning: build_py: byte-compiling is disabled, skipping.\n\ninstalling to build/bdist.linux-x86_64/wheel\nrunning install\nrunning install_lib\ncreating build/bdist.linux-x86_64/wheel\ncopying build/lib/app.py -> build/bdist.linux-x86_64/wheel/.\ncopying build/lib/templating.py -> build/bdist.linux-x86_64/wheel/.\nwarning: install_lib: byte-compiling is disabled, skipping.\n\nrunning install_egg_info\nCopying vasuki_security_lab.egg-info to build/bdist.linux-x86_64/wheel/./vasuki_security_lab-0.1.0-py3.11.egg-info\nrunning install_scripts\ncreating build/bdist.linux-x86_64/wheel/vasuki_security_lab-0.1.0.dist-info/WHEEL\ncreating '/tmp/vasuki-dist/.tmp-8frl02lv/vasuki_security_lab-0.1.0-py3-none-any.whl' and adding 'build/bdist.linux-x86_64/wheel' to it\nadding 'app.py'\nadding 'templating.py'\nadding 'vasuki_security_lab-0.1.0.dist-info/METADATA'\nadding 'vasuki_security_lab-0.1.0.dist-info/WHEEL'\nadding 'vasuki_security_lab-0.1.0.dist-info/top_level.txt'\nadding 'vasuki_security_lab-0.1.0.dist-info/RECORD'\nremoving build/bdist.linux-x86_64/wheel\nSuccessfully built vasuki_security_lab-0.1.0-py3-none-any.whl\nWheel artifact: vasuki_security_lab-0.1.0-py3-none-any.whl \u00b7 sha256 8537c55ed1dc5d346cc434cfea225865030d100bdfad9e49220bdc61c48196bf\n",
+        "duration_seconds": 3.44
+      },
+      "test_inputs": {
+        "unchanged": true,
+        "changed_test_inputs": []
+      },
+      "test_manifest": {
+        "files": {
+          "tests/test_app.py": "9fa6474f401b12bb74cf07ebc575b78c00143759711fba53be75250372e3ba10",
+          "tests/test_templates.py": "d0bc46dc15e22351d57487ca980b0516a5c38e24d9fd0cd6f7d8f82aadc1b524"
+        },
+        "configuration": {
+          "pyproject.toml": {
+            "pytest": null
+          }
+        }
+      },
+      "success": true,
+      "has_tests": true,
+      "label": "patched",
+      "runner": "docker",
+      "exit_code": 0,
+      "output": ".............                                                            [100%]\n13 passed in 2.18s\n",
+      "duration_seconds": 44.26
+    },
+    "regression_free": true,
+    "regressions": [],
+    "missing_tests": [],
+    "fixed_tests": [
+      "tests.test_app::test_sqli_auth_bypass_blocked",
+      "tests.test_app::test_path_traversal_exploit_blocked",
+      "tests.test_app::test_idor_anonymous_access_blocked",
+      "tests.test_app::test_idor_cross_user_access_blocked",
+      "tests.test_app::test_path_traversal_absolute_path_blocked",
+      "tests.test_templates::test_security_template_attr_filter_cannot_disclose_private_class"
+    ],
+    "duplicate_test_ids": [],
+    "newly_skipped_tests": [],
+    "security_tests_passed": true,
+    "security_tests_count": 6,
+    "has_tests": true,
+    "patches_applied": 4,
+    "changed_lines": 20,
+    "verification_score": 100,
+    "patch_sha": "473063dfd4918bae0e3f71107bd225588b4db3e5",
+    "pr_description": "## Security issue and fix\n- CWE-89: `app.py` \u2014 A dynamically formatted SQL string reaches the database execution call.\n- CWE-22: `app.py` \u2014 A request handler opens a joined path without checking the resolved directory boundary.\n- CWE-639: `app.py` \u2014 A user object is fetched using a route ID without a session ownership check.\n- CVE-2025-27516: `requirements.txt` \u2014 An oversight in how the Jinja sandboxed environment interacts with the `|attr` filter allows an attacker that controls the content of a template to execute arbitrary Python code.  To exploit the vulnerability, an attacker needs to control the content of a template. Whether that is the case depends on the type of application using Jinja. This vulnerability impacts users of applications which execute untrusted templates.  Jinja's sandbox does catch calls to `str.format` and ensures they don't escape the sandbox. However, it's possible to use the `|attr` filter to get a reference to a string's plain format method, bypassing the sandbox. After the fix, the `|attr` filter no longer bypasses the environment's attribute lookup.\n\nTargeted change rationale:\n- A dynamically formatted SQL string reaches the database execution call.\n- A request handler opens a joined path without checking the resolved directory boundary.\n- A user object is fetched using a route ID without a session ownership check.\n- Upgrade jinja2 from 3.1.5 to 3.1.6 using the advisory fix version\n\nSource checks used the same rules before and after patching. Inspect the file\ndiffs for the specific implementation changes.\n\n## Executed test evidence\n| Metric | Before | After |\n|---|---:|---:|\n| Passed | 7 | 13 |\n| Failed | 6 | 0 |\n| Errors | 0 | 0 |\n| Collected tests | 13 | 13 |\n\n- Runner: `docker`\n- Project build: `python-wheel` \u2014 passed\n- Test code and configuration unchanged: True\n- Build-time and test-time input fingerprints unchanged: True\n- Security tests passed: 6\n- Previously passing tests retained: True\n- Missing tests: 0\n- Final source findings: 0\n- Model / repair engine: `advisory-version-bump, native-ast-repair, oci/google.gemini-2.5-flash`\n- Validation score: 100/100 (executed checks; not a probability)\n- Changed source lines: 20\n- Base commit: `33ccd2f2bf2effe03dfb54c9b37027cd5e45e9ac`\n- Validated patch commit: `473063dfd4918bae0e3f71107bd225588b4db3e5`\n- Scan ID: `d8ece508-b8dc-4e4a-b942-34652ed1ac68`\n\nTests that failed on the vulnerable baseline and now pass:\n- `tests.test_app::test_sqli_auth_bypass_blocked`\n- `tests.test_app::test_path_traversal_exploit_blocked`\n- `tests.test_app::test_idor_anonymous_access_blocked`\n- `tests.test_app::test_idor_cross_user_access_blocked`\n- `tests.test_app::test_path_traversal_absolute_path_blocked`\n- `tests.test_templates::test_security_template_attr_filter_cannot_disclose_private_class`\n\nGenerated by VASUKI. This draft PR includes automated evidence for human review.\n",
+    "pr_url": "https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/5",
+    "verification_checks": {
+      "source_rescan_clear": true,
+      "patched_suite_passed": true,
+      "baseline_coverage_preserved": true,
+      "security_exploits_blocked": true,
+      "diff_within_limit": true,
+      "project_builds_passed": true,
+      "test_inputs_unchanged": true
+    },
+    "verification_version": 2,
+    "elapsed_seconds": 157.7,
+    "outcome": "Verified patches published in a real GitHub draft PR"
+  },
+  "confidence_score": 100.0,
+  "blast_radius": [
+    "app.py",
+    "requirements.txt"
+  ],
+  "pr_url": "https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/5",
+  "pr_number": 5,
+  "error_message": "",
+  "created_at": "2026-10-10T00:21:20.489179",
+  "completed_at": "2026-10-10T00:23:58.202499"
+}

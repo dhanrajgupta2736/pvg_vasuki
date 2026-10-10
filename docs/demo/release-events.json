@@ -1,0 +1,771 @@
+[
+  {
+    "agent": "orchestrator",
+    "message": "Queued for the next available pipeline runner",
+    "data": {
+      "status": "pending"
+    },
+    "level": "info",
+    "event_id": "008fcaa8-4765-439b-973d-0105464805b7",
+    "timestamp": "2026-10-10T00:21:20.499165+00:00"
+  },
+  {
+    "agent": "orchestrator",
+    "message": "RECON: cloning and analyzing repository",
+    "data": {
+      "progress": 8,
+      "active_agent": "scanner"
+    },
+    "level": "info",
+    "event_id": "994a01b1-284e-4ae2-ad4c-065de146133d",
+    "timestamp": "2026-10-10T00:21:20.584999+00:00"
+  },
+  {
+    "agent": "scanner",
+    "message": "Cloning dhanrajgupta2736/vasuki-security-lab at release/v0.1",
+    "data": {},
+    "level": "info",
+    "event_id": "74b7bbb5-71f4-4892-ac78-2bf0c5ac7118",
+    "timestamp": "2026-10-10T00:21:21.199549+00:00"
+  },
+  {
+    "agent": "scanner",
+    "message": "Native AST analysis found 3 security findings",
+    "data": {
+      "count": 3
+    },
+    "level": "info",
+    "event_id": "d14e27ea-cb49-4a82-842f-8e0fd91eafab",
+    "timestamp": "2026-10-10T00:21:22.502895+00:00"
+  },
+  {
+    "agent": "scanner",
+    "message": "Dependency advisory audit completed",
+    "data": {
+      "declared_packages": 3,
+      "findings": 1,
+      "scope": "explicitly declared pinned requirements"
+    },
+    "level": "info",
+    "event_id": "1b0866e9-93a0-445b-9d2f-ff1c3342ae24",
+    "timestamp": "2026-10-10T00:21:25.715779+00:00"
+  },
+  {
+    "agent": "scanner",
+    "message": "RECON complete: 4 findings at commit 33ccd2f2",
+    "data": {},
+    "level": "info",
+    "event_id": "76754755-8dbf-4b6a-905f-a7cbef66d183",
+    "timestamp": "2026-10-10T00:21:25.783456+00:00"
+  },
+  {
+    "agent": "orchestrator",
+    "message": "PROOF: building the vulnerable baseline and recording unchanged tests",
+    "data": {
+      "progress": 18,
+      "active_agent": "tester"
+    },
+    "level": "info",
+    "event_id": "f15288ca-7801-4548-a5a5-53e7f9b66213",
+    "timestamp": "2026-10-10T00:21:25.804631+00:00"
+  },
+  {
+    "agent": "tester",
+    "message": "Running baseline test suite",
+    "data": {
+      "label": "baseline"
+    },
+    "level": "info",
+    "event_id": "b6884776-d563-406e-aaa1-2834074a07e1",
+    "timestamp": "2026-10-10T00:21:25.811299+00:00"
+  },
+  {
+    "agent": "tester",
+    "message": "baseline: 7 passed, 6 failed, 0 errors",
+    "data": {
+      "passed": 7,
+      "failed": 6,
+      "errors": 0,
+      "skipped": 0,
+      "total": 13,
+      "cases": [
+        {
+          "id": "tests.test_app::test_login_valid",
+          "name": "test_login_valid",
+          "status": "passed",
+          "duration": 0.009,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_login_invalid",
+          "name": "test_login_invalid",
+          "status": "passed",
+          "duration": 0.002,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_profile_lookup",
+          "name": "test_profile_lookup",
+          "status": "passed",
+          "duration": 0.003,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_nonexistent_profile",
+          "name": "test_nonexistent_profile",
+          "status": "passed",
+          "duration": 0.004,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_sqli_auth_bypass_blocked",
+          "name": "test_sqli_auth_bypass_blocked",
+          "status": "failed",
+          "duration": 0.003,
+          "security": true,
+          "message": "AssertionError: SECURITY REGRESSION: SQL injection authentication bypass succeeded!\nassert 200 == 401\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_path_traversal_exploit_blocked",
+          "name": "test_path_traversal_exploit_blocked",
+          "status": "failed",
+          "duration": 0.002,
+          "security": true,
+          "message": "AssertionError: SECURITY REGRESSION: Path traversal escaped root directory and read source file!\nassert 200 in (400, 403, 404)\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_idor_anonymous_access_blocked",
+          "name": "test_idor_anonymous_access_blocked",
+          "status": "failed",
+          "duration": 0.052,
+          "security": true,
+          "message": "assert 200 == 401\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_idor_cross_user_access_blocked",
+          "name": "test_idor_cross_user_access_blocked",
+          "status": "failed",
+          "duration": 0.003,
+          "security": true,
+          "message": "assert 200 == 403\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_owner_profile_access_preserved",
+          "name": "test_owner_profile_access_preserved",
+          "status": "passed",
+          "duration": 0.003,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_path_traversal_absolute_path_blocked",
+          "name": "test_path_traversal_absolute_path_blocked",
+          "status": "failed",
+          "duration": 0.002,
+          "security": true,
+          "message": "assert 200 in (400, 403, 404)\n +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code"
+        },
+        {
+          "id": "tests.test_app::test_document_read_preserved",
+          "name": "test_document_read_preserved",
+          "status": "passed",
+          "duration": 0.002,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_templates::test_template_normal_rendering",
+          "name": "test_template_normal_rendering",
+          "status": "passed",
+          "duration": 0.003,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_templates::test_security_template_attr_filter_cannot_disclose_private_class",
+          "name": "test_security_template_attr_filter_cannot_disclose_private_class",
+          "status": "failed",
+          "duration": 0.057,
+          "security": true,
+          "message": "assert \"a<class 'int'>b\" == 'ab'\n  \n  - ab\n  + a<class 'int'>b"
+        }
+      ],
+      "sandbox": {
+        "container_id": "fc297c65f8e13784f572cd3414a0c01c719362f045ee3fac705edded4d2d183e",
+        "user": "1000:1000",
+        "network_connections": [],
+        "memory_bytes": 536870912,
+        "nano_cpus": 500000000,
+        "pids_limit": 128,
+        "cap_drop": [
+          "ALL"
+        ],
+        "security_options": [
+          "no-new-privileges:true"
+        ],
+        "host_mounts": []
+      },
+      "build": {
+        "kind": "python-wheel",
+        "command": [
+          "python",
+          "-I",
+          "/tmp/vasuki-controller.py",
+          "wheel",
+          "/tmp/repo"
+        ],
+        "exit_code": 0,
+        "success": true,
+        "output": "* Getting build dependencies for wheel...\nVerified offline repository installation and build: loopback only, non-root user\nrunning egg_info\nwriting vasuki_security_lab.egg-info/PKG-INFO\nwriting dependency_links to vasuki_security_lab.egg-info/dependency_links.txt\nwriting requirements to vasuki_security_lab.egg-info/requires.txt\nwriting top-level names to vasuki_security_lab.egg-info/top_level.txt\nreading manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\nwriting manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\n* Building wheel...\nVerified offline repository installation and build: loopback only, non-root user\nrunning bdist_wheel\nrunning build\nrunning build_py\nrunning egg_info\nwriting vasuki_security_lab.egg-info/PKG-INFO\nwriting dependency_links to vasuki_security_lab.egg-info/dependency_links.txt\nwriting requirements to vasuki_security_lab.egg-info/requires.txt\nwriting top-level names to vasuki_security_lab.egg-info/top_level.txt\nreading manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\nwriting manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\nwarning: build_py: byte-compiling is disabled, skipping.\n\ninstalling to build/bdist.linux-x86_64/wheel\nrunning install\nrunning install_lib\ncreating build/bdist.linux-x86_64/wheel\ncopying build/lib/app.py -> build/bdist.linux-x86_64/wheel/.\ncopying build/lib/templating.py -> build/bdist.linux-x86_64/wheel/.\nrunning install_egg_info\nwarning: install_lib: byte-compiling is disabled, skipping.\n\nCopying vasuki_security_lab.egg-info to build/bdist.linux-x86_64/wheel/./vasuki_security_lab-0.1.0-py3.11.egg-info\nrunning install_scripts\ncreating build/bdist.linux-x86_64/wheel/vasuki_security_lab-0.1.0.dist-info/WHEEL\ncreating '/tmp/vasuki-dist/.tmp-a_vgsby6/vasuki_security_lab-0.1.0-py3-none-any.whl' and adding 'build/bdist.linux-x86_64/wheel' to it\nadding 'app.py'\nadding 'templating.py'\nadding 'vasuki_security_lab-0.1.0.dist-info/METADATA'\nadding 'vasuki_security_lab-0.1.0.dist-info/WHEEL'\nadding 'vasuki_security_lab-0.1.0.dist-info/top_level.txt'\nadding 'vasuki_security_lab-0.1.0.dist-info/RECORD'\nremoving build/bdist.linux-x86_64/wheel\nSuccessfully built vasuki_security_lab-0.1.0-py3-none-any.whl\nWheel artifact: vasuki_security_lab-0.1.0-py3-none-any.whl \u00b7 sha256 87468caf312060593c5b39cd83d6e1b4abcc189f77ab5f9f794f0420478770ca\n",
+        "duration_seconds": 3.15
+      },
+      "test_inputs": {
+        "unchanged": true,
+        "changed_test_inputs": []
+      },
+      "test_manifest": {
+        "files": {
+          "tests/test_app.py": "9fa6474f401b12bb74cf07ebc575b78c00143759711fba53be75250372e3ba10",
+          "tests/test_templates.py": "d0bc46dc15e22351d57487ca980b0516a5c38e24d9fd0cd6f7d8f82aadc1b524"
+        },
+        "configuration": {
+          "pyproject.toml": {
+            "pytest": null
+          }
+        }
+      },
+      "success": false,
+      "has_tests": true,
+      "label": "baseline",
+      "runner": "docker",
+      "exit_code": 1,
+      "output": "....FFFF.F..F                                                            [100%]\n=================================== FAILURES ===================================\n________________________ test_sqli_auth_bypass_blocked _________________________\ntests/test_app.py:53: in test_sqli_auth_bypass_blocked\n    assert res.status_code == 401, \"SECURITY REGRESSION: SQL injection authentication bypass succeeded!\"\nE   AssertionError: SECURITY REGRESSION: SQL injection authentication bypass succeeded!\nE   assert 200 == 401\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n_____________________ test_path_traversal_exploit_blocked ______________________\ntests/test_app.py:63: in test_path_traversal_exploit_blocked\n    assert res.status_code in (400, 403, 404), \"SECURITY REGRESSION: Path traversal escaped root directory and read source file!\"\nE   AssertionError: SECURITY REGRESSION: Path traversal escaped root directory and read source file!\nE   assert 200 in (400, 403, 404)\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n______________________ test_idor_anonymous_access_blocked ______________________\ntests/test_app.py:68: in test_idor_anonymous_access_blocked\n    assert res.status_code == 401\nE   assert 200 == 401\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n_____________________ test_idor_cross_user_access_blocked ______________________\ntests/test_app.py:74: in test_idor_cross_user_access_blocked\n    assert res.status_code == 403\nE   assert 200 == 403\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n__________________ test_path_traversal_absolute_path_blocked ___________________\ntests/test_app.py:87: in test_path_traversal_absolute_path_blocked\n    assert res.status_code in (400, 403, 404)\nE   assert 200 in (400, 403, 404)\nE    +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code\n_______ test_security_template_attr_filter_cannot_disclose_private_class _______\ntests/test_templates.py:13: in test_security_template_attr_filter_cannot_disclose_private_class\n    assert render_template(payload, 42) == \"ab\"\nE   assert \"a<class 'int'>b\" == 'ab'\nE     \nE     - ab\nE     + a<class 'int'>b\n=========================== short test summary info ============================\nFAILED tests/test_app.py::test_sqli_auth_bypass_blocked - AssertionError: SEC...\nFAILED tests/test_app.py::test_path_traversal_exploit_blocked - AssertionErro...\nFAILED tests/test_app.py::test_idor_anonymous_access_blocked - assert 200 == 401\nFAILED tests/test_app.py::test_idor_cross_user_access_blocked - assert 200 ==...\nFAILED tests/test_app.py::test_path_traversal_absolute_path_blocked - assert ...\nFAILED tests/test_templates.py::test_security_template_attr_filter_cannot_disclose_private_class\n6 failed, 7 passed in 0.79s\n",
+      "duration_seconds": 45.69
+    },
+    "level": "info",
+    "event_id": "d57b2962-f993-4827-8b2d-7e3a35be2ab5",
+    "timestamp": "2026-10-10T00:22:11.496767+00:00"
+  },
+  {
+    "agent": "orchestrator",
+    "message": "FORGE: generating targeted security patches",
+    "data": {
+      "progress": 30,
+      "active_agent": "patcher"
+    },
+    "level": "info",
+    "event_id": "def9a0fd-31e5-4f6b-bfdf-7e35a8b5e6a7",
+    "timestamp": "2026-10-10T00:22:11.580697+00:00"
+  },
+  {
+    "agent": "patcher",
+    "message": "Created patch branch codex/vasuki-patch-d8ece508",
+    "data": {},
+    "level": "info",
+    "event_id": "4ff6fccf-b63f-4838-a862-73b2e6b16f87",
+    "timestamp": "2026-10-10T00:22:11.599118+00:00"
+  },
+  {
+    "agent": "patcher",
+    "message": "Generating sql-injection patch using oci/google.gemini-2.5-flash",
+    "data": {},
+    "level": "info",
+    "event_id": "1a4531e2-00af-4c54-965f-0106ef903f63",
+    "timestamp": "2026-10-10T00:22:11.686414+00:00"
+  },
+  {
+    "agent": "patcher",
+    "message": "Model patch unavailable or invalid: unterminated triple-quoted string literal (detected at line 75) (<unknown>, line 6); checking supported AST repair",
+    "data": {},
+    "level": "warning",
+    "event_id": "f3f51842-c61c-4bcc-a00e-b218448ee020",
+    "timestamp": "2026-10-10T00:22:28.081675+00:00"
+  },
+  {
+    "agent": "patcher",
+    "message": "Applied sql-injection patch in app.py",
+    "data": {
+      "file": "app.py",
+      "model_used": "native-ast-repair"
+    },
+    "level": "info",
+    "event_id": "0801b8fa-0b34-4203-ba50-bbcb542062f6",
+    "timestamp": "2026-10-10T00:22:28.097545+00:00"
+  },
+  {
+    "agent": "patcher",
+    "message": "Generating path-traversal patch using oci/google.gemini-2.5-flash",
+    "data": {},
+    "level": "info",
+    "event_id": "1081a813-935e-497f-9655-19bb18e78d55",
+    "timestamp": "2026-10-10T00:22:28.102382+00:00"
+  },
+  {
+    "agent": "patcher",
+    "message": "Applied path-traversal patch in app.py",
+    "data": {
+      "file": "app.py",
+      "model_used": "oci/google.gemini-2.5-flash"
+    },
+    "level": "info",
+    "event_id": "e31e0007-927c-4375-8143-503e239ad278",
+    "timestamp": "2026-10-10T00:22:34.885924+00:00"
+  },
+  {
+    "agent": "patcher",
+    "message": "Generating broken-access-control patch using oci/google.gemini-2.5-flash",
+    "data": {},
+    "level": "info",
+    "event_id": "fc50a588-c2cb-45f0-aa5e-e283b4809b53",
+    "timestamp": "2026-10-10T00:22:34.891899+00:00"
+  },
+  {
+    "agent": "patcher",
+    "message": "Applied broken-access-control patch in app.py",
+    "data": {
+      "file": "app.py",
+      "model_used": "oci/google.gemini-2.5-flash"
+    },
+    "level": "info",
+    "event_id": "5cb1beaf-6a2d-40f2-aba4-9a010f45ca92",
+    "timestamp": "2026-10-10T00:22:44.029944+00:00"
+  },
+  {
+    "agent": "patcher",
+    "message": "Applied dependency patch in requirements.txt",
+    "data": {
+      "file": "requirements.txt",
+      "model_used": "advisory-version-bump"
+    },
+    "level": "info",
+    "event_id": "5e6ae2cb-aaed-4188-8d35-05dd4be39471",
+    "timestamp": "2026-10-10T00:22:44.032178+00:00"
+  },
+  {
+    "agent": "orchestrator",
+    "message": "SHIELD: verifying the final source and every applied patch",
+    "data": {
+      "progress": 55,
+      "active_agent": "reviewer"
+    },
+    "level": "info",
+    "event_id": "dd610d48-aa44-4212-85fc-aef46c0d1031",
+    "timestamp": "2026-10-10T00:22:44.103446+00:00"
+  },
+  {
+    "agent": "reviewer",
+    "level": "info",
+    "message": "Re-scanning final patched source with the intake rules",
+    "data": {},
+    "event_id": "d16a451c-1482-43c7-a603-d7f7ceabb0a0",
+    "timestamp": "2026-10-10T00:22:44.104068+00:00"
+  },
+  {
+    "agent": "scanner",
+    "message": "Native AST analysis found 1 security findings",
+    "data": {
+      "count": 1
+    },
+    "level": "info",
+    "event_id": "84a942f4-8392-4b9c-ac14-81554bd8492f",
+    "timestamp": "2026-10-10T00:22:44.196573+00:00"
+  },
+  {
+    "agent": "scanner",
+    "message": "Dependency advisory audit completed",
+    "data": {
+      "declared_packages": 3,
+      "findings": 0,
+      "scope": "explicitly declared pinned requirements"
+    },
+    "level": "info",
+    "event_id": "847ec367-b5d8-4e9c-8947-847ae962a045",
+    "timestamp": "2026-10-10T00:22:47.284563+00:00"
+  },
+  {
+    "agent": "orchestrator",
+    "message": "Security review rejected the first patch; feedback returned to FORGE for one bounded repair",
+    "data": {
+      "review": {
+        "individual_reviews": [
+          {
+            "patch_id": "python-dynamic-sql:app.py:41",
+            "file": "app.py",
+            "patch_fixes_vuln": true,
+            "introduces_new_vulns": false,
+            "confidence_score": 100,
+            "recommendation": "approve",
+            "logic_break_risk": "pending-test-verification",
+            "reasoning": "Target rule no longer matches; syntax passes. Runtime proof is required.",
+            "semgrep_result": "Re-scan passed"
+          },
+          {
+            "patch_id": "flask-path-boundary:app.py:58",
+            "file": "app.py",
+            "patch_fixes_vuln": false,
+            "introduces_new_vulns": false,
+            "confidence_score": 0,
+            "recommendation": "reject",
+            "logic_break_risk": "pending-test-verification",
+            "reasoning": "Target remains or source validation failed.",
+            "semgrep_result": "Re-scan failed"
+          },
+          {
+            "patch_id": "flask-object-authorization:app.py:67",
+            "file": "app.py",
+            "patch_fixes_vuln": true,
+            "introduces_new_vulns": false,
+            "confidence_score": 100,
+            "recommendation": "approve",
+            "logic_break_risk": "pending-test-verification",
+            "reasoning": "Target rule no longer matches; syntax passes. Runtime proof is required.",
+            "semgrep_result": "Re-scan passed"
+          },
+          {
+            "patch_id": "dependency:jinja2:PYSEC-2026-1471",
+            "file": "requirements.txt",
+            "patch_fixes_vuln": true,
+            "introduces_new_vulns": false,
+            "confidence_score": 100,
+            "recommendation": "approve",
+            "logic_break_risk": "pending-test-verification",
+            "reasoning": "Target rule no longer matches; syntax passes. Runtime proof is required.",
+            "semgrep_result": "Re-scan passed"
+          }
+        ],
+        "summary": {
+          "approved": 3,
+          "rejected": 1,
+          "total_reviewed": 4
+        },
+        "remaining_findings": [
+          {
+            "id": "flask-path-boundary:app.py:67",
+            "rule_id": "flask-path-boundary",
+            "file": "app.py",
+            "line_start": 67,
+            "line_end": 67,
+            "severity": "HIGH",
+            "category": "path-traversal",
+            "cwe_id": "CWE-22",
+            "cve_id": null,
+            "message": "A request handler opens a joined path without checking the resolved directory boundary.",
+            "source": "native-ast",
+            "code_snippet": "open(file_path, \"r\", encoding=\"utf-8\")"
+          }
+        ],
+        "new_findings": [],
+        "syntax_errors": [],
+        "all_findings_resolved": false
+      }
+    },
+    "level": "warning",
+    "event_id": "2d2bd7a7-5f89-429b-94ff-1cf895f5492d",
+    "timestamp": "2026-10-10T00:22:47.286368+00:00"
+  },
+  {
+    "agent": "patcher",
+    "message": "Generating path-traversal patch using oci/google.gemini-2.5-flash",
+    "data": {},
+    "level": "info",
+    "event_id": "998c5486-f4ec-4487-a6d8-6b114f0f27f0",
+    "timestamp": "2026-10-10T00:22:47.303748+00:00"
+  },
+  {
+    "agent": "patcher",
+    "message": "Applied path-traversal patch in app.py",
+    "data": {
+      "file": "app.py",
+      "model_used": "oci/google.gemini-2.5-flash"
+    },
+    "level": "info",
+    "event_id": "97b4cd07-70cf-4636-9879-731cfdaeebf4",
+    "timestamp": "2026-10-10T00:23:07.282729+00:00"
+  },
+  {
+    "agent": "patcher",
+    "message": "Applied reviewer feedback in app.py",
+    "data": {
+      "model_used": "oci/google.gemini-2.5-flash"
+    },
+    "level": "info",
+    "event_id": "dc596665-5ed6-47ff-a199-9239e2687c9a",
+    "timestamp": "2026-10-10T00:23:07.286563+00:00"
+  },
+  {
+    "agent": "reviewer",
+    "level": "info",
+    "message": "Re-scanning final patched source with the intake rules",
+    "data": {},
+    "event_id": "dd95bcfe-a6f3-40ce-8492-2ab086cfc1af",
+    "timestamp": "2026-10-10T00:23:07.287451+00:00"
+  },
+  {
+    "agent": "scanner",
+    "message": "Native AST analysis found 0 security findings",
+    "data": {
+      "count": 0
+    },
+    "level": "info",
+    "event_id": "f072cdfa-ee47-4fea-bd23-120ba27262e3",
+    "timestamp": "2026-10-10T00:23:07.301110+00:00"
+  },
+  {
+    "agent": "scanner",
+    "message": "Dependency advisory audit completed",
+    "data": {
+      "declared_packages": 3,
+      "findings": 0,
+      "scope": "explicitly declared pinned requirements"
+    },
+    "level": "info",
+    "event_id": "bcf679ab-9ca5-4a18-897a-2c7ac1369ada",
+    "timestamp": "2026-10-10T00:23:09.820047+00:00"
+  },
+  {
+    "agent": "orchestrator",
+    "message": "PROOF: executing patched tests and comparing each baseline result",
+    "data": {
+      "progress": 75,
+      "active_agent": "tester"
+    },
+    "level": "info",
+    "event_id": "34b70738-c626-4458-9a38-5c48fba61c5b",
+    "timestamp": "2026-10-10T00:23:09.905659+00:00"
+  },
+  {
+    "agent": "tester",
+    "message": "Running patched test suite",
+    "data": {
+      "label": "patched"
+    },
+    "level": "info",
+    "event_id": "6db4d97a-f38f-4009-9a7a-0a521e9642ff",
+    "timestamp": "2026-10-10T00:23:09.913093+00:00"
+  },
+  {
+    "agent": "tester",
+    "message": "patched: 13 passed, 0 failed, 0 errors",
+    "data": {
+      "passed": 13,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "total": 13,
+      "cases": [
+        {
+          "id": "tests.test_app::test_login_valid",
+          "name": "test_login_valid",
+          "status": "passed",
+          "duration": 0.093,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_login_invalid",
+          "name": "test_login_invalid",
+          "status": "passed",
+          "duration": 0.005,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_profile_lookup",
+          "name": "test_profile_lookup",
+          "status": "passed",
+          "duration": 0.005,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_nonexistent_profile",
+          "name": "test_nonexistent_profile",
+          "status": "passed",
+          "duration": 0.004,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_sqli_auth_bypass_blocked",
+          "name": "test_sqli_auth_bypass_blocked",
+          "status": "passed",
+          "duration": 0.073,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_path_traversal_exploit_blocked",
+          "name": "test_path_traversal_exploit_blocked",
+          "status": "passed",
+          "duration": 0.002,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_idor_anonymous_access_blocked",
+          "name": "test_idor_anonymous_access_blocked",
+          "status": "passed",
+          "duration": 0.001,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_idor_cross_user_access_blocked",
+          "name": "test_idor_cross_user_access_blocked",
+          "status": "passed",
+          "duration": 0.003,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_owner_profile_access_preserved",
+          "name": "test_owner_profile_access_preserved",
+          "status": "passed",
+          "duration": 0.008,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_path_traversal_absolute_path_blocked",
+          "name": "test_path_traversal_absolute_path_blocked",
+          "status": "passed",
+          "duration": 0.002,
+          "security": true,
+          "message": ""
+        },
+        {
+          "id": "tests.test_app::test_document_read_preserved",
+          "name": "test_document_read_preserved",
+          "status": "passed",
+          "duration": 0.002,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_templates::test_template_normal_rendering",
+          "name": "test_template_normal_rendering",
+          "status": "passed",
+          "duration": 0.076,
+          "security": false,
+          "message": ""
+        },
+        {
+          "id": "tests.test_templates::test_security_template_attr_filter_cannot_disclose_private_class",
+          "name": "test_security_template_attr_filter_cannot_disclose_private_class",
+          "status": "passed",
+          "duration": 0.006,
+          "security": true,
+          "message": ""
+        }
+      ],
+      "sandbox": {
+        "container_id": "9989fd8e1dc55a81283d3b6c89d69baa41f495f0f25998d59bba66fd0f6e9d25",
+        "user": "1000:1000",
+        "network_connections": [],
+        "memory_bytes": 536870912,
+        "nano_cpus": 500000000,
+        "pids_limit": 128,
+        "cap_drop": [
+          "ALL"
+        ],
+        "security_options": [
+          "no-new-privileges:true"
+        ],
+        "host_mounts": []
+      },
+      "build": {
+        "kind": "python-wheel",
+        "command": [
+          "python",
+          "-I",
+          "/tmp/vasuki-controller.py",
+          "wheel",
+          "/tmp/repo"
+        ],
+        "exit_code": 0,
+        "success": true,
+        "output": "* Getting build dependencies for wheel...\nVerified offline repository installation and build: loopback only, non-root user\nrunning egg_info\nwriting vasuki_security_lab.egg-info/PKG-INFO\nwriting dependency_links to vasuki_security_lab.egg-info/dependency_links.txt\nwriting requirements to vasuki_security_lab.egg-info/requires.txt\nwriting top-level names to vasuki_security_lab.egg-info/top_level.txt\nreading manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\nwriting manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\n* Building wheel...\nVerified offline repository installation and build: loopback only, non-root user\nrunning bdist_wheel\nrunning build\nrunning build_py\nrunning egg_info\nwriting vasuki_security_lab.egg-info/PKG-INFO\nwriting dependency_links to vasuki_security_lab.egg-info/dependency_links.txt\nwriting requirements to vasuki_security_lab.egg-info/requires.txt\nwriting top-level names to vasuki_security_lab.egg-info/top_level.txt\nreading manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\nwriting manifest file 'vasuki_security_lab.egg-info/SOURCES.txt'\nwarning: build_py: byte-compiling is disabled, skipping.\n\ninstalling to build/bdist.linux-x86_64/wheel\nrunning install\nrunning install_lib\ncreating build/bdist.linux-x86_64/wheel\ncopying build/lib/app.py -> build/bdist.linux-x86_64/wheel/.\ncopying build/lib/templating.py -> build/bdist.linux-x86_64/wheel/.\nwarning: install_lib: byte-compiling is disabled, skipping.\n\nrunning install_egg_info\nCopying vasuki_security_lab.egg-info to build/bdist.linux-x86_64/wheel/./vasuki_security_lab-0.1.0-py3.11.egg-info\nrunning install_scripts\ncreating build/bdist.linux-x86_64/wheel/vasuki_security_lab-0.1.0.dist-info/WHEEL\ncreating '/tmp/vasuki-dist/.tmp-8frl02lv/vasuki_security_lab-0.1.0-py3-none-any.whl' and adding 'build/bdist.linux-x86_64/wheel' to it\nadding 'app.py'\nadding 'templating.py'\nadding 'vasuki_security_lab-0.1.0.dist-info/METADATA'\nadding 'vasuki_security_lab-0.1.0.dist-info/WHEEL'\nadding 'vasuki_security_lab-0.1.0.dist-info/top_level.txt'\nadding 'vasuki_security_lab-0.1.0.dist-info/RECORD'\nremoving build/bdist.linux-x86_64/wheel\nSuccessfully built vasuki_security_lab-0.1.0-py3-none-any.whl\nWheel artifact: vasuki_security_lab-0.1.0-py3-none-any.whl \u00b7 sha256 8537c55ed1dc5d346cc434cfea225865030d100bdfad9e49220bdc61c48196bf\n",
+        "duration_seconds": 3.44
+      },
+      "test_inputs": {
+        "unchanged": true,
+        "changed_test_inputs": []
+      },
+      "test_manifest": {
+        "files": {
+          "tests/test_app.py": "9fa6474f401b12bb74cf07ebc575b78c00143759711fba53be75250372e3ba10",
+          "tests/test_templates.py": "d0bc46dc15e22351d57487ca980b0516a5c38e24d9fd0cd6f7d8f82aadc1b524"
+        },
+        "configuration": {
+          "pyproject.toml": {
+            "pytest": null
+          }
+        }
+      },
+      "success": true,
+      "has_tests": true,
+      "label": "patched",
+      "runner": "docker",
+      "exit_code": 0,
+      "output": ".............                                                            [100%]\n13 passed in 2.18s\n",
+      "duration_seconds": 44.26
+    },
+    "level": "info",
+    "event_id": "8ef49a90-e2a3-4e55-a6b2-536f10dedbf5",
+    "timestamp": "2026-10-10T00:23:54.176599+00:00"
+  },
+  {
+    "agent": "patcher",
+    "message": "Verified patches committed",
+    "data": {},
+    "level": "info",
+    "event_id": "1e45f1f9-fe23-4359-9e8d-eacbefe92ea9",
+    "timestamp": "2026-10-10T00:23:54.390362+00:00"
+  },
+  {
+    "agent": "orchestrator",
+    "message": "HERALD: publishing the verified branch and opening a draft PR",
+    "data": {
+      "progress": 95
+    },
+    "level": "info",
+    "event_id": "fbfd9c6f-6766-4b73-adea-bd38a9c1fb5c",
+    "timestamp": "2026-10-10T00:23:54.578188+00:00"
+  },
+  {
+    "agent": "github",
+    "level": "info",
+    "message": "Verified branch pushed to dhanrajgupta2736/vasuki-security-lab",
+    "data": {
+      "branch": "codex/vasuki-patch-d8ece508"
+    },
+    "event_id": "a4504b3e-57e5-4316-806b-5b8ad48e0f31",
+    "timestamp": "2026-10-10T00:23:56.964227+00:00"
+  },
+  {
+    "agent": "github",
+    "level": "info",
+    "message": "Draft PR #5 created",
+    "data": {
+      "pr_url": "https://github.com/dhanrajgupta2736/vasuki-security-lab/pull/5",
+      "pr_number": 5
+    },
+    "event_id": "4d2dfd6e-9d03-40cb-bbe2-d3c24fe77a1e",
+    "timestamp": "2026-10-10T00:23:58.188383+00:00"
+  },
+  {
+    "agent": "orchestrator",
+    "message": "Verified patches published in a real GitHub draft PR",
+    "data": {
+      "status": "completed",
+      "progress": 100
+    },
+    "level": "info",
+    "event_id": "1632598f-c031-4a06-8e82-db8f3f06d497",
+    "timestamp": "2026-10-10T00:23:58.212928+00:00"
+  }
+]

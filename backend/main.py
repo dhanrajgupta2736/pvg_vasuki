@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     async with AsyncSessionLocal() as db:
         await db.execute(update(ScanJob).where(ScanJob.status.in_([
-            ScanStatus.PENDING, ScanStatus.SCANNING, ScanStatus.PATCHING, ScanStatus.REVIEWING, ScanStatus.TESTING
+            ScanStatus.PENDING, ScanStatus.SCANNING, ScanStatus.PATCHING, ScanStatus.REVIEWING, ScanStatus.TESTING, ScanStatus.DEPLOYING
         ])).values(status=ScanStatus.FAILED, error_message="Server restarted during this run; retry the scan"))
         await db.commit()
     yield

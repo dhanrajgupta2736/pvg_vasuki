@@ -3,9 +3,13 @@
 - CWE-22: `app.py` — A request handler opens a joined path without checking the resolved directory boundary.
 - CWE-639: `app.py` — A user object is fetched using a route ID without a session ownership check.
 
-The patch binds SQL values, enforces filesystem boundaries, or validates object
-ownership as applicable to the findings above. Inspect the file diffs for the
-specific changes. Source checks used the same rules before and after patching.
+Targeted change rationale:
+- A dynamically formatted SQL string reaches the database execution call.
+- A request handler opens a joined path without checking the resolved directory boundary.
+- A user object is fetched using a route ID without a session ownership check.
+
+Source checks used the same rules before and after patching. Inspect the file
+diffs for the specific implementation changes.
 
 ## Executed test evidence
 | Metric | Before | After |
@@ -16,16 +20,20 @@ specific changes. Source checks used the same rules before and after patching.
 | Collected tests | 11 | 11 |
 
 - Runner: `docker`
+- Repair cycles executed: 1
+- Project build: `python-source-compile` — passed
+- Test code and configuration unchanged: True
+- Build-time and test-time input fingerprints unchanged: True
 - Security tests passed: 5
 - Previously passing tests retained: True
 - Missing tests: 0
 - Final source findings: 0
-- Model / repair engine: `oci/google.gemini-2.5-flash`
+- Model / repair engine: `native-ast-repair, oci/google.gemini-2.5-flash`
 - Validation score: 100/100 (executed checks; not a probability)
-- Changed source lines: 29
+- Changed source lines: 18
 - Base commit: `d0fbbf666eaf20f63206b8607024ffac2cf81b76`
-- Validated patch commit: `9f20362784b56376475e7746aa31ca00a9fb99a7`
-- Scan ID: `cfa7c315-d9a0-4801-91c7-06915d6d9aad`
+- Validated patch commit: `4d15a4a1a9d0ca58defe7a3b0f53a0874e1850a7`
+- Scan ID: `d3c0261f-e9fa-434e-b50f-3349ad7181e9`
 
 Tests that failed on the vulnerable baseline and now pass:
 - `tests.test_app::test_sqli_auth_bypass_blocked`
