@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, Check, Code2, ExternalLink, GitBranch, History, LoaderCircle, Radar, Rocket, ShieldCheck, TestTubes, X } from 'lucide-react'
+import { ArrowRight, Check, Code2, ExternalLink, GitBranch, History, LoaderCircle, Radar, Rocket, ShieldCheck, Sparkles, TestTubes, X } from 'lucide-react'
 import { Tests, Diff, request, Badge, Empty } from './LiveDashboard.jsx'
+import VasukiLogo from './components/VasukiLogo.jsx'
+import ReviewPanel from './components/ReviewPanel.jsx'
+import CodeRabbitCompareModal from './components/CodeRabbitCompareModal.jsx'
 import './brutalist.css'
 
 const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
@@ -21,6 +24,7 @@ export default function BrutalistDashboard() {
   const [health, setHealth] = useState(null)
   const [history, setHistory] = useState([])
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [compareOpen, setCompareOpen] = useState(false)
   const [repo, setRepo] = useState('')
   const [branch, setBranch] = useState('')
   const [projectPath, setProjectPath] = useState('')
@@ -103,7 +107,24 @@ export default function BrutalistDashboard() {
   const home = () => { if (!active) { setScanId(''); setError('') } }
 
   return <div className="brutal-app">
-    <header className="brutal-header"><button className="brutal-brand" onClick={home} disabled={active} aria-label="VASUKI home"><span>V.</span> VASUKI</button><div className="header-right"><span className={`runtime ${health ? 'connected' : ''}`}><i />{health ? 'ORACLE CONNECTED' : 'CONNECTING TO ORACLE'}</span><button className="brutal-button white small" onClick={() => setHistoryOpen(true)}><History size={16} />Run history</button></div></header>
+    <header className="brutal-header">
+      <button className="brutal-brand" onClick={home} disabled={active} aria-label="VASUKI home">
+        <VasukiLogo size={46} showImage={true} />
+        <div className="brand-text-block">
+          <span className="brand-name">VASUKI</span>
+          <span className="brand-sub">AUTONOMOUS SECURITY SENTINEL</span>
+        </div>
+      </button>
+      <div className="header-right">
+        <span className={`runtime ${health ? 'connected' : ''}`}><i />{health ? 'ORACLE CONNECTED' : 'CONNECTING TO ORACLE'}</span>
+        <button className="brutal-button white small compare-btn" onClick={() => setCompareOpen(true)}>
+          <Sparkles size={16} />VASUKI vs CodeRabbit
+        </button>
+        <button className="brutal-button white small" onClick={() => setHistoryOpen(true)}>
+          <History size={16} />Run history
+        </button>
+      </div>
+    </header>
     <main className="brutal-main">
       {!scanId ? <motion.section className="landing" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         <div className="landing-copy"><div className="sticker">AUTONOMOUS SECURITY. WITH PROOF.</div><h1>BAD CODE.<br />MEET YOUR<br /><span>FIX CREW.</span></h1><p>Give us a repository. Watch the agents find flaws,<br className="desktop-break" /> patch the source and prove the fix.</p></div>
@@ -123,16 +144,27 @@ export default function BrutalistDashboard() {
         <div className="brutal-progress"><div><motion.span animate={{ width: `${progress}%` }} /></div><b>{progress}%</b><span>{evidence.rounds?.length || 0} verification cycles recorded</span></div>
         {scan?.error_message && <div className="brutal-error"><b>RUN STOPPED — NO UNVERIFIED PR</b><p>{scan.error_message}</p></div>}
         {done && <div className="delivery-result"><Check size={36} /><div><h2>{scan.pr_url ? 'YOUR PATCH IS READY.' : 'VERIFIED PATCH READY.'}</h2><p>{evidence.patched_tests?.passed} tests passed · {evidence.fixed_tests?.length} failing tests fixed · {evidence.regressions?.length || 0} regressions · {evidence.verification_score}/100 executed checks</p></div>{scan.pr_url ? <a className="brutal-button black" href={scan.pr_url} target="_blank" rel="noreferrer">Open draft PR <ExternalLink size={19} /></a> : <a className="brutal-button black" href={`${API}/api/reports/${scanId}/patch`} download>Download patch <ArrowRight size={19} /></a>}</div>}
-        <div className="brutal-evidence-grid"><section className="evidence-panel"><div className="evidence-heading"><b>THE RECEIPTS.</b><a href={`${API}/api/reports/${scanId}/full`} target="_blank" rel="noreferrer">Full report ↗</a></div><div className="tabs">{[['tests', 'Tests'], ['findings', 'Findings'], ['patches', 'Patches'], ['review', 'Review']].map(([key, title]) => <button key={key} onClick={() => setTab(key)} className={tab === key ? 'current' : ''}>{title}</button>)}</div><div className="tab-content">
-          {tab === 'tests' && <Tests evidence={evidence} />}
-          {tab === 'findings' && (findings.length ? findings.map(v => <article className="finding" key={v.id}><div className="finding-heading"><span className={`severity ${v.severity.toLowerCase()}`}>{v.severity}</span><span className="mono">{v.cwe_id || v.cve_id || v.rule_id}</span></div><h4>{v.category.replaceAll('-', ' ')}</h4><p>{v.message}</p><div className="file-location">{v.file}:{v.line_start} · {v.source}</div>{v.code_snippet && <pre className="snippet">{v.code_snippet}</pre>}</article>) : <Empty text="RECON findings appear after analysis." />)}
-          {tab === 'patches' && (patches.length ? <><a className="demo-link" href={`${API}/api/reports/${scanId}/patch`} download>Download complete diff ↗</a>{patches.filter((p, i) => !p.final_diff || patches.findIndex(x => x.file === p.file) === i).map((p, i) => <Diff key={i} patch={p} />)}</> : <Empty text="FORGE patches appear after generation." />)}
-          {tab === 'review' && <><h3>{notes.summary ? notes.all_findings_resolved ? 'Source rescan clear.' : 'Findings remain.' : 'Review pending.'}</h3><div className="verification-checks">{evidence.verification_checks && <><strong>{evidence.verification_score}/100 — executed gates</strong>{Object.entries(evidence.verification_checks).map(([name, passed]) => <div key={name}>{passed ? <Check size={16} /> : <X size={16} />}{name.replaceAll('_', ' ')}</div>)}</>}</div>{evidence.rounds?.map(r => <div className="cycle-result" key={r.iteration}><b>Cycle {r.iteration}</b><span>Review {r.review_passed ? 'passed' : 'rejected'} · Tests {r.passed} passed / {r.failed} failed</span></div>)}<p className="review-note">Findings are limited to configured analysis rules. The score counts validation gates; it is not a guarantee that every possible vulnerability is absent.</p></>}
-        </div></section><section className="evidence-panel"><div className="evidence-heading"><b>LIVE HANDOFFS.</b><span>{events.length} events</span></div><div className="handoff-list">{handoffs.map((e, i) => <div key={e.event_id}><span>{String(i + 1).padStart(2, '0')}</span><p><b>{labelFor(e.data.active_agent)}</b><small>{e.data.phase === 'baseline' ? 'Baseline tests' : e.data.iteration ? `Cycle ${e.data.iteration}` : 'Inspect repository'}</small></p>{i===handoffs.length-1 && active ? <LoaderCircle className="spin" size={16} /> : i===handoffs.length-1 && scan?.status!=='completed' ? <X size={16} /> : <Check size={16} />}</div>)}</div><div className="brutal-terminal">{events.slice(-80).map(e => <div key={e.event_id} className={e.level}><b>{labelFor(e.agent)}</b><p>{e.message}</p></div>)}<div ref={logEnd} /></div></section></div>
+        <div className="brutal-evidence-grid"><section className="evidence-panel"><div className="evidence-heading"><b>THE RECEIPTS.</b><a href={`${API}/api/reports/${scanId}/full`} target="_blank" rel="noreferrer">Full report ↗</a></div>
+          <div className="tabs">
+            {[['tests', 'Tests & Proof'], ['audit', 'Why & What Changed'], ['findings', 'Findings'], ['patches', 'Raw Diff'], ['review', 'Agent Review']].map(([key, title]) => 
+              <button key={key} onClick={() => setTab(key)} className={tab === key ? 'current' : ''}>{title}</button>
+            )}
+          </div>
+          <div className="tab-content">
+            {tab === 'tests' && <Tests evidence={evidence} />}
+            {tab === 'audit' && <ReviewPanel scan={scan} findings={findings} patches={patches} notes={notes} evidence={evidence} />}
+            {tab === 'findings' && (findings.length ? findings.map(v => <article className="finding" key={v.id}><div className="finding-heading"><span className={`severity ${v.severity.toLowerCase()}`}>{v.severity}</span><span className="mono">{v.cwe_id || v.cve_id || v.rule_id}</span></div><h4>{v.category.replaceAll('-', ' ')}</h4><p>{v.message}</p><div className="file-location">{v.file}:{v.line_start} · {v.source}</div>{v.code_snippet && <pre className="snippet">{v.code_snippet}</pre>}</article>) : <Empty text="RECON findings appear after analysis." />)}
+            {tab === 'patches' && (patches.length ? <><a className="demo-link" href={`${API}/api/reports/${scanId}/patch`} download>Download complete diff ↗</a>{patches.filter((p, i) => !p.final_diff || patches.findIndex(x => x.file === p.file) === i).map((p, i) => <Diff key={i} patch={p} />)}</> : <Empty text="FORGE patches appear after generation." />)}
+            {tab === 'review' && <><h3>{notes.summary ? notes.all_findings_resolved ? 'Source rescan clear.' : 'Findings remain.' : 'Review pending.'}</h3><div className="verification-checks">{evidence.verification_checks && <><strong>{evidence.verification_score}/100 — executed gates</strong>{Object.entries(evidence.verification_checks).map(([name, passed]) => <div key={name}>{passed ? <Check size={16} /> : <X size={16} />}{name.replaceAll('_', ' ')}</div>)}</>}</div>{evidence.rounds?.map(r => <div className="cycle-result" key={r.iteration}><b>Cycle {r.iteration}</b><span>Review {r.review_passed ? 'passed' : 'rejected'} · Tests {r.passed} passed / {r.failed} failed</span></div>)}<p className="review-note">Findings are limited to configured analysis rules. The score counts validation gates; it is not a guarantee that every possible vulnerability is absent.</p></>}
+          </div>
+        </section><section className="evidence-panel"><div className="evidence-heading"><b>LIVE HANDOFFS.</b><span>{events.length} events</span></div><div className="handoff-list">{handoffs.map((e, i) => <div key={e.event_id}><span>{String(i + 1).padStart(2, '0')}</span><p><b>{labelFor(e.data.active_agent)}</b><small>{e.data.phase === 'baseline' ? 'Baseline tests' : e.data.iteration ? `Cycle ${e.data.iteration}` : 'Inspect repository'}</small></p>{i===handoffs.length-1 && active ? <LoaderCircle className="spin" size={16} /> : i===handoffs.length-1 && scan?.status!=='completed' ? <X size={16} /> : <Check size={16} />}</div>)}</div><div className="brutal-terminal">{events.slice(-80).map(e => <div key={e.event_id} className={e.level}><b>{labelFor(e.agent)}</b><p>{e.message}</p></div>)}<div ref={logEnd} /></div></section></div>
         {!active && <button className="brutal-button yellow new-inspection" onClick={home}>Inspect another repository <ArrowRight size={20} /></button>}
       </>}
       <footer className="brutal-footer"><b>VASUKI / BUILD WITH PROOF.</b><span>{health?.model || 'Oracle model'} · {health?.n8n_configured ? 'n8n orchestration' : 'Native orchestration'} · Human approves the merge.</span></footer>
     </main>
-    <AnimatePresence>{historyOpen && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setHistoryOpen(false)}><motion.div className="history-modal panel" initial={{ x: 100 }} animate={{ x: 0 }} onClick={e => e.stopPropagation()}><div className="section-label"><b>RUN HISTORY</b><button className="icon-button" aria-label="Close history" onClick={() => setHistoryOpen(false)}><X /></button></div>{history.map(job => <button className="history-entry" key={job.scan_id} onClick={() => selectRun(job)}><div><strong>{job.repo_url.split('/').slice(-2).join('/')}</strong><span>{job.scan_id.slice(0, 8)} · {job.branch || 'default branch'}</span></div><Badge status={job.status} /><ArrowRight size={18} /></button>)}</motion.div></motion.div>}</AnimatePresence>
+    <AnimatePresence>
+      {historyOpen && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setHistoryOpen(false)}><motion.div className="history-modal panel" initial={{ x: 100 }} animate={{ x: 0 }} onClick={e => e.stopPropagation()}><div className="section-label"><b>RUN HISTORY</b><button className="icon-button" aria-label="Close history" onClick={() => setHistoryOpen(false)}><X /></button></div>{history.map(job => <button className="history-entry" key={job.scan_id} onClick={() => selectRun(job)}><div><strong>{job.repo_url.split('/').slice(-2).join('/')}</strong><span>{job.scan_id.slice(0, 8)} · {job.branch || 'default branch'}</span></div><Badge status={job.status} /><ArrowRight size={18} /></button>)}</motion.div></motion.div>}
+    </AnimatePresence>
+    <CodeRabbitCompareModal isOpen={compareOpen} onClose={() => setCompareOpen(false)} />
   </div>
 }
