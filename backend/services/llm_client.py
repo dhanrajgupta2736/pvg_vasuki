@@ -8,6 +8,23 @@ def configured_model():
     return 'groq/llama-3.3-70b-versatile' if settings.GROQ_API_KEY else 'oci/' + settings.OCI_GENAI_MODEL_ID
 
 async def call_llm(system_prompt, user_prompt, max_tokens=4096, temperature=0.1, json_mode=False):
+    """Execute a real LangChain prompt/model/output chain using existing OCI auth."""
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.runnables import RunnableLambda
+    from langchain_core.output_parsers import StrOutputParser
+
+    async def provider(prompt):
+        messages = prompt.to_messages()
+        return await _call_provider(messages[0].content, messages[1].content,
+                                    max_tokens, temperature, json_mode)
+
+    chain = (ChatPromptTemplate.from_messages([
+        ('system', '{system_prompt}'), ('human', '{user_prompt}')
+    ]) | RunnableLambda(provider) | StrOutputParser())
+    return await chain.ainvoke({'system_prompt': system_prompt, 'user_prompt': user_prompt})
+
+
+async def _call_provider(system_prompt, user_prompt, max_tokens=4096, temperature=0.1, json_mode=False):
     if not settings.USE_LLM:
         raise RuntimeError('Model inference is disabled')
     if settings.GROQ_API_KEY:

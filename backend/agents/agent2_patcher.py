@@ -206,4 +206,22 @@ async def repair_review_findings(repo_path,patches,notes,scan_id):
                 if existing['file']==finding['file'] and existing['category']==finding['category']:
                     existing['model_used']=engine or existing['model_used']
             await emit(scan_id,f"Applied reviewer feedback in {finding['file']}",{'model_used':engine})
+    for feedback in notes.get('semantic_review',{}).get('changes',[]):
+        if feedback.get('file') not in allowed or not feedback.get('blockers'):
+            continue
+        path=repo_file(repo_path,feedback['file'])
+        original=path.read_text(encoding='utf-8')
+        try:
+            candidate=_strip_code_fences(await call_llm(PATCH_SYSTEM_PROMPT,
+                'An independent reviewer rejected the actual patch. Repair these concrete blockers while retaining all earlier security fixes and legitimate behavior.\n'
+                +json.dumps(feedback)+'\nSOURCE FILE:\n'+original,max_tokens=12000))
+            validate_candidate(original,candidate,path)
+            write_source(path,candidate)
+            changed=True
+            for existing in patches:
+                if existing['file']==feedback['file']:
+                    existing['model_used'] += ' + '+configured_model()+'-review-feedback'
+            await emit(scan_id,f"Applied independent reviewer feedback in {feedback['file']}",{'model_used':configured_model()})
+        except Exception as exc:
+            await emit(scan_id,f'Independent review feedback repair unavailable: {type(exc).__name__}',level='warning')
     return changed
