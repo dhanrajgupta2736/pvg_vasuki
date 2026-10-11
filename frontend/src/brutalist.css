@@ -106,18 +106,28 @@
 .gh-disconnect:hover{border-color:#ff8873;color:#ff8873}
 .gh-close{background:none;border:none;color:white;cursor:pointer;padding:4px;display:flex}
 
-/* Token form */
-.gh-connect-form{padding:36px 30px;display:flex;flex-direction:column;align-items:center;text-align:center}
-.gh-connect-icon{background:#171717;color:white;border:3px solid #171717;box-shadow:4px 4px #171717;width:84px;height:84px;display:grid;place-content:center;margin-bottom:20px}
-.gh-connect-form h3{font:900 22px Arial;margin:0 0 10px}
-.gh-connect-form>p{font:13px/1.6 Arial;color:#555;margin:0 0 22px}
+/* Token form / OAuth */
+.gh-connect-form{padding:32px 28px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.gh-connect-icon{background:#171717;color:white;border:3px solid #171717;box-shadow:4px 4px #171717;width:80px;height:80px;display:grid;place-content:center;margin-bottom:14px}
+.gh-badge-pill{display:inline-block;background:#171717;color:#ffdd59;font:bold 10px monospace;padding:3px 9px;letter-spacing:1px;margin-bottom:10px}
+.gh-connect-form h3{font:900 24px Arial;letter-spacing:-0.5px;margin:0 0 8px}
+.gh-auth-desc{font:13px/1.6 Arial;color:#555;margin:0 0 20px;max-width:460px}
+.gh-auth-btn{width:100%;max-width:440px;font-size:15px;padding:16px 24px;justify-content:center;gap:10px}
+.gh-oauth-badges{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;font:11px monospace;color:#666;margin:14px 0 6px}
+.gh-oauth-badges span{display:inline-flex;align-items:center;gap:4px}
+.gh-pat-accordion{width:100%;max-width:460px;margin-top:16px;border-top:1px dashed #ccc;padding-top:12px}
+.gh-pat-toggle{display:inline-flex;align-items:center;gap:6px;background:none;border:none;font:11px monospace;color:#666;cursor:pointer;padding:4px}
+.gh-pat-toggle:hover{color:#171717;text-decoration:underline}
+.gh-pat-content{margin-top:10px;text-align:left;background:#eae5dc;padding:14px;border:2px solid #171717}
+.gh-pat-content p{font:12px/1.5 Arial;color:#444;margin:0 0 10px}
+.gh-pat-content code{background:white;padding:2px 5px;font:bold 11px monospace;border:1px solid #171717}
 .gh-connect-form a{color:#171717;font-weight:bold;text-decoration:underline}
-.gh-token-row{display:flex;gap:10px;width:100%;max-width:480px}
-.gh-token-row input{flex:1;border:3px solid #171717;background:white;padding:14px;font:13px monospace;min-width:0}
+.gh-token-row{display:flex;gap:10px;width:100%}
+.gh-token-row input{flex:1;border:3px solid #171717;background:white;padding:12px;font:12px monospace;min-width:0}
 .gh-token-row input:focus{outline:none;box-shadow:0 0 0 2px #ffdd59}
-.gh-token-row .brutal-button{font-size:14px;padding:14px 20px;white-space:nowrap}
-.gh-error{margin-top:14px;padding:10px 16px;background:#ffb7a8;border:2px solid #171717;font:12px monospace;color:#171717}
-.gh-token-note{display:flex;align-items:center;gap:8px;margin-top:18px;font:10px monospace;color:#888}
+.gh-token-row .brutal-button{font-size:13px;padding:12px 18px;white-space:nowrap}
+.gh-error{margin-top:14px;padding:10px 16px;background:#ffb7a8;border:2px solid #171717;font:12px monospace;color:#171717;max-width:460px;text-align:left}
+.gh-token-note{display:flex;align-items:center;gap:8px;margin-top:16px;font:10px monospace;color:#888}
 
 /* User card */
 .gh-user-card{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:2px solid #171717;background:white}

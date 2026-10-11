@@ -10,6 +10,9 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 class Settings(BaseSettings):
     # GitHub
     GITHUB_TOKEN: str = ""
+    GITHUB_CLIENT_ID: str = ""
+    GITHUB_CLIENT_SECRET: str = ""
+    GITHUB_OAUTH_REDIRECT_URI: str = ""
     GITHUB_APP_ID: str = ""
     GITHUB_APP_PRIVATE_KEY_PATH: str = "./github_app.pem"
 

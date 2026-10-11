@@ -1,7 +1,10 @@
-"""GitHub user-connect: list repos for an authenticated GitHub user."""
+"""GitHub user-connect: list repos and OAuth authorize for GitHub users."""
 import httpx
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
+from typing import Optional
+from core.config import settings
 
 router = APIRouter()
 
@@ -11,6 +14,132 @@ _UA = {"User-Agent": "VASUKI/1.0"}
 
 class TokenPayload(BaseModel):
     token: str
+
+
+class OAuthExchangePayload(BaseModel):
+    code: str
+    redirect_uri: Optional[str] = None
+
+
+@router.get("/oauth/config")
+async def get_oauth_config():
+    """Return whether GitHub OAuth is configured and the public Client ID."""
+    return {
+        "client_id": settings.GITHUB_CLIENT_ID or "",
+        "configured": bool(settings.GITHUB_CLIENT_ID and settings.GITHUB_CLIENT_SECRET),
+    }
+
+
+@router.get("/oauth/login")
+async def oauth_login(redirect_uri: Optional[str] = Query(None), state: Optional[str] = Query("")):
+    """Initiate GitHub OAuth flow by redirecting to GitHub."""
+    if not settings.GITHUB_CLIENT_ID:
+        raise HTTPException(400, "GitHub OAuth is not configured on the backend (missing GITHUB_CLIENT_ID)")
+    
+    cb = redirect_uri or settings.GITHUB_OAUTH_REDIRECT_URI or f"{settings.FRONTEND_URL.rstrip('/')}/"
+    gh_auth_url = (
+        f"https://github.com/login/oauth/authorize"
+        f"?client_id={settings.GITHUB_CLIENT_ID}"
+        f"&scope=repo,read:user"
+        f"&redirect_uri={cb}"
+    )
+    if state:
+        gh_auth_url += f"&state={state}"
+    return RedirectResponse(gh_auth_url)
+
+
+@router.post("/oauth/exchange")
+async def oauth_exchange(payload: OAuthExchangePayload):
+    """Exchange OAuth code for GitHub access token."""
+    if not settings.GITHUB_CLIENT_ID or not settings.GITHUB_CLIENT_SECRET:
+        raise HTTPException(
+            400,
+            "GitHub OAuth is not configured on backend. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in backend/.env"
+        )
+
+    data = {
+        "client_id": settings.GITHUB_CLIENT_ID,
+        "client_secret": settings.GITHUB_CLIENT_SECRET,
+        "code": payload.code,
+    }
+    if payload.redirect_uri:
+        data["redirect_uri"] = payload.redirect_uri
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            "https://github.com/login/oauth/access_token",
+            headers={"Accept": "application/json", **_UA},
+            data=data,
+        )
+        if resp.status_code != 200:
+            raise HTTPException(502, f"GitHub OAuth exchange failed: {resp.text}")
+
+        res_data = resp.json()
+        if "error" in res_data:
+            raise HTTPException(400, res_data.get("error_description", res_data["error"]))
+
+        token = res_data.get("access_token")
+        if not token:
+            raise HTTPException(400, "No access token returned by GitHub")
+
+        # Fetch user info
+        user_resp = await client.get(
+            f"{GH_API}/user",
+            headers={**_UA, "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+        )
+        user = user_resp.json() if user_resp.status_code == 200 else None
+
+        return {
+            "token": token,
+            "token_type": res_data.get("token_type", "bearer"),
+            "scope": res_data.get("scope", ""),
+            "user": {
+                "login": user["login"],
+                "avatar_url": user.get("avatar_url", ""),
+                "name": user.get("name", user["login"]),
+                "public_repos": user.get("public_repos", 0),
+                "total_private_repos": user.get("total_private_repos", 0),
+            } if user and "login" in user else None,
+        }
+
+
+@router.get("/oauth/callback")
+async def oauth_callback(
+    code: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+    error: Optional[str] = Query(None),
+    error_description: Optional[str] = Query(None),
+):
+    """Direct OAuth redirect callback from GitHub to backend."""
+    frontend_url = (settings.FRONTEND_URL or "http://localhost:5173").rstrip("/")
+    if error:
+        err_msg = error_description or error
+        return RedirectResponse(f"{frontend_url}/?gh_error={err_msg}")
+
+    if not code:
+        return RedirectResponse(f"{frontend_url}/?gh_error=No_code_received_from_GitHub")
+
+    if not settings.GITHUB_CLIENT_ID or not settings.GITHUB_CLIENT_SECRET:
+        return RedirectResponse(f"{frontend_url}/?gh_error=GitHub_OAuth_not_configured_on_backend")
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            "https://github.com/login/oauth/access_token",
+            headers={"Accept": "application/json", **_UA},
+            data={
+                "client_id": settings.GITHUB_CLIENT_ID,
+                "client_secret": settings.GITHUB_CLIENT_SECRET,
+                "code": code,
+            },
+        )
+        res_data = resp.json() if resp.status_code == 200 else {}
+        token = res_data.get("access_token")
+        if not token:
+            err_msg = res_data.get("error_description", "Token exchange failed")
+            return RedirectResponse(f"{frontend_url}/?gh_error={err_msg}")
+
+        return RedirectResponse(f"{frontend_url}/?gh_token={token}")
+
 
 
 @router.post("/repos")

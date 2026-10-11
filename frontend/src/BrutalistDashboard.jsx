@@ -28,7 +28,7 @@ export default function BrutalistDashboard() {
   const [history, setHistory] = useState([])
   const [historyOpen, setHistoryOpen] = useState(false)
   const [ghOpen, setGhOpen] = useState(false)
-  const ghConnected = !!localStorage.getItem('vasuki_gh_token')
+  const [ghConnected, setGhConnected] = useState(() => !!localStorage.getItem('vasuki_gh_token'))
   const [apiEndpoint, setApiEndpoint] = useState(() => localStorage.getItem('vasuki_api_url') || API)
   const [repo, setRepo] = useState('')
   const [branch, setBranch] = useState('')
@@ -45,6 +45,57 @@ export default function BrutalistDashboard() {
   const logEnd = useRef(null)
   const simTimerRef = useRef(null)
   const active = !!scanId && (!scan || !terminal.has(scan.status))
+
+  // Detect GitHub OAuth redirects and popup callbacks
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const ghToken = params.get('gh_token')
+    const ghCode = params.get('code')
+    const ghError = params.get('gh_error') || params.get('error_description')
+
+    // If this window is an OAuth popup opened by VASUKI
+    if (window.opener && (ghToken || ghCode || ghError)) {
+      if (ghToken) {
+        window.opener.postMessage({ type: 'VASUKI_GH_OAUTH_TOKEN', token: ghToken }, window.location.origin)
+      } else if (ghCode) {
+        window.opener.postMessage({ type: 'VASUKI_GH_OAUTH_CODE', code: ghCode }, window.location.origin)
+      } else if (ghError) {
+        window.opener.postMessage({ type: 'VASUKI_GH_OAUTH_ERROR', error: ghError }, window.location.origin)
+      }
+      window.close()
+      return
+    }
+
+    // Full page redirect flow
+    if (ghToken) {
+      localStorage.setItem('vasuki_gh_token', ghToken)
+      setGhConnected(true)
+      setGhOpen(true)
+      window.history.replaceState({}, document.title, window.location.pathname)
+    } else if (ghCode) {
+      window.history.replaceState({}, document.title, window.location.pathname)
+      const baseUrl = apiEndpoint || API
+      fetch(`${baseUrl}/api/github/oauth/exchange`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: ghCode, redirect_uri: window.location.origin + '/' }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.token) {
+            localStorage.setItem('vasuki_gh_token', data.token)
+            setGhConnected(true)
+            setGhOpen(true)
+          } else if (data.detail) {
+            setError(typeof data.detail === 'string' ? data.detail : 'OAuth exchange failed')
+          }
+        })
+        .catch(err => setError(err.message))
+    } else if (ghError) {
+      setError(`GitHub Authorization: ${ghError}`)
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [apiEndpoint])
 
   useEffect(() => {
     let alive = true
@@ -272,7 +323,7 @@ export default function BrutalistDashboard() {
       <div className="header-right">
         <span className={`runtime ${health || scanId ? 'connected' : ''}`}><i />{health ? 'ORACLE BACKEND ONLINE' : 'AUTONOMOUS RUNNER READY'}</span>
         <button className={`gh-connect-btn ${ghConnected ? 'connected' : ''}`} onClick={() => setGhOpen(true)}>
-          <GithubIcon size={15} />{ghConnected ? 'My Repos' : 'Connect GitHub'}
+          <GithubIcon size={15} />{ghConnected ? 'My Repos' : 'Authorize GitHub'}
         </button>
         <button className="brutal-button white small" onClick={openHistory}>
           <History size={16} />Run history
@@ -320,7 +371,14 @@ export default function BrutalistDashboard() {
       {historyOpen && <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setHistoryOpen(false)}><motion.div className="history-modal panel" initial={{ x: 100 }} animate={{ x: 0 }} onClick={e => e.stopPropagation()}><div className="section-label"><b>RUN HISTORY ({history.length})</b><button className="icon-button" aria-label="Close history" onClick={() => setHistoryOpen(false)}><X /></button></div>{history.length ? history.map(job => <button className="history-entry" key={job.scan_id} onClick={() => selectRun(job)}><div><strong>{job.repo_url.split('/').slice(-2).join('/')}</strong><span>{job.scan_id.slice(0, 8)} · {job.branch || 'default branch'}</span></div><Badge status={job.status} /><ArrowRight size={18} /></button>) : <div style={{ padding: '36px 20px', textAlign: 'center', fontFamily: 'monospace', color: '#666' }}><LoaderCircle className="spin" style={{ margin: '0 auto 10px' }} size={24} /><div>Connecting to Oracle run history...</div></div>}</motion.div></motion.div>}
     </AnimatePresence>
     <AnimatePresence>
-      {ghOpen && <GitHubConnect apiEndpoint={apiEndpoint || API} onSelectRepo={(url, br) => { setRepo(url); setBranch(br || ''); setProjectPath('') }} onClose={() => setGhOpen(false)} />}
+      {ghOpen && (
+        <GitHubConnect
+          apiEndpoint={apiEndpoint || API}
+          onSelectRepo={(url, br) => { setRepo(url); setBranch(br || ''); setProjectPath('') }}
+          onClose={() => setGhOpen(false)}
+          onStatusChange={connected => setGhConnected(connected)}
+        />
+      )}
     </AnimatePresence>
   </div>
 }
